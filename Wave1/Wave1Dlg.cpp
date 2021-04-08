@@ -20,6 +20,7 @@ class CAboutDlg : public CDialogEx
 {
 public:
 	CAboutDlg();
+	
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -53,35 +54,22 @@ END_MESSAGE_MAP()
 
 CWave1Dlg::CWave1Dlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_WAVE1_DIALOG, pParent)
+	, m_valP(30)
+	, m_valI(0.5)
+	, m_valD(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
 	// 将数组m_nzValues的元素都初始化为0   
 
 	memset(m_nzValues, 0, sizeof(int) * POINT_COUNT);
-
-	// 自定义变量和标志位初始化
-	is_open_ = 1;
-	is_closed_ = 1;
-	dt_ = 200; //200ms
-	k_d_ = 0;
-	k_i_ = 0;
-	k_p_ = 0;
-
-	last_error_ = 0;
-	current_error_ = 0;
-	error_integral_ = 0;
-	control_quantity_ = 0;
-	reference_value_ = 0;
 }
 
 void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_WAVE_DRAW, m_picDraw);
-	DDX_Control(pDX, IDC_P, m_p);
-	DDX_Control(pDX, IDC_I, m_I);
-	DDX_Control(pDX, IDC_D, m_D);
+
 	DDX_Control(pDX, IDC_CHANNEL_READ, m_channelRead);
 	DDX_Control(pDX, IDC_IN_SIG, m_inSig);
 	DDX_Control(pDX, IDC_DIFF, m_diff);
@@ -93,7 +81,14 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_GAIN, m_comGain);
 	DDX_Control(pDX, IDC_SIG, m_comSig);
 	DDX_Control(pDX, IDC_STEP, m_comStep);
-	DDX_Control(pDX, IDC_STEP_AMP, m_comStepAmp);
+	DDX_Text(pDX, IDC_STEP_AMP, m_valStepAmp);
+	DDV_MinMaxDouble(pDX, m_valStepAmp, 0, 100000);
+	DDX_Text(pDX, IDC_P, m_valP);
+	DDV_MinMaxDouble(pDX, m_valP, 0, 100000);
+	DDX_Text(pDX, IDC_I, m_valI);
+	DDV_MinMaxDouble(pDX, m_valI, 0, 100000);
+	DDX_Text(pDX, IDC_D, m_valD);
+	DDV_MinMaxDouble(pDX, m_valD, 0, 100000);
 }
 
 BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
@@ -117,7 +112,11 @@ BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_STEP_AMP, &CWave1Dlg::OnCbnSelchangeStepAmp)
 	ON_BN_CLICKED(IDC_START, &CWave1Dlg::OnBnClickedStart)
 	ON_BN_CLICKED(IDC_END, &CWave1Dlg::OnBnClickedEnd)
-	ON_EN_CHANGE(IDC_CHANNEL_READ, &CWave1Dlg::OnEnChangeChannelRead)
+	ON_EN_CHANGE(IDC_P, &CWave1Dlg::OnEnChangeP)
+	ON_EN_CHANGE(IDC_I, &CWave1Dlg::OnEnChangeI)
+	ON_EN_CHANGE(IDC_D, &CWave1Dlg::OnEnChangeD)
+
+	ON_EN_CHANGE(IDC_STEP_AMP, &CWave1Dlg::OnEnChangeStepAmp)
 END_MESSAGE_MAP()
 
 
@@ -155,10 +154,7 @@ BOOL CWave1Dlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 
 	// 以时间为种子来构造随机数生成器   
-    //srand((unsigned)time(NULL));   
- 
-    // 启动定时器，ID为1，定时时间为200ms   
-    SetTimer(1, dt_, NULL);   
+    //srand((unsigned)time(NULL));    
 
 	// 为“通道方式”combo控件的列表框添加列表项
 	m_comChannel.AddString(_T("单端"));
@@ -173,16 +169,19 @@ BOOL CWave1Dlg::OnInitDialog()
 	SetDlgItemText(IDC_CHANNEL_NUM, _T("48"));	// 编辑框中默认显示第一项的文字“48”
 
 	// 为“量程”combo控件的列表框添加列表项
-	m_comRange.AddString(_T("0-10000mm"));
-	m_comRange.AddString(_T("0-5000mm"));
-	m_comRange.SetCurSel(0);	// 默认选择第一项   
-	SetDlgItemText(IDC_RANGE, _T("0-10000mm"));	// 编辑框中默认显示第一项的文字“0-10000mm”
+	m_comRange.AddString(_T("0 -- 5000mV"));	//1
+	m_comRange.AddString(_T("0 -- 10000mV"));	//2
+	m_comRange.AddString(_T("-5000 -- 5000mV"));	//5
+	m_comRange.AddString(_T("原码值"));	//0
+	m_comRange.SetCurSel(1);	// 默认选择第一项   
+	SetDlgItemText(IDC_RANGE, _T("0 -- 10000mV"));	// 编辑框中默认显示第一项的文字“0-10000mm”
 
 	// 为“增益”combo控件的列表框添加列表项
 	m_comGain.AddString(_T("1倍增益（无增益）"));
-	m_comGain.AddString(_T("2倍增益"));
+	m_comGain.AddString(_T("10倍增益"));
+	m_comGain.AddString(_T("100倍增益"));
 	m_comGain.SetCurSel(0);	// 默认选择第一项   
-	SetDlgItemText(IDC_GAIN, _T("1倍增益"));	// 编辑框中默认显示第一项的文字“1倍增益（无增益）”
+	SetDlgItemText(IDC_GAIN, _T("1倍增益（无增益）"));	// 编辑框中默认显示第一项的文字“1倍增益（无增益）”
 
 	// 为“信号选择”combo控件的列表框添加列表项
 	m_comSig.AddString(_T("阶跃"));
@@ -196,15 +195,7 @@ BOOL CWave1Dlg::OnInitDialog()
 	m_comStep.SetCurSel(0);	// 默认选择第一项   
 	SetDlgItemText(IDC_STEP, _T("开启"));	// 编辑框中默认显示第一项的文字“开启”
 
-	// 为“阶跃 幅值”combo控件的列表框添加列表项
-	m_comStepAmp.AddString(_T("10"));
-	m_comStepAmp.AddString(_T("20"));
-	m_comStepAmp.SetCurSel(0);	// 默认选择第一项   
-	SetDlgItemText(IDC_STEP_AMP, _T("10"));	// 编辑框中默认显示第一项的文字“10”
     return TRUE;  // return TRUE  unless you set the focus to a control   
-
-	// 文本框设置
-	//TODO: 显示状态
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -271,7 +262,7 @@ void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture)
 
 	// 计算fDeltaX和fDeltaY   
 	fDeltaX = (float)rectPicture.Width() / (POINT_COUNT - 1);
-	fDeltaY = (float)rectPicture.Height() / 80;
+	fDeltaY = (float)rectPicture.Height() / 250;
 
 	// 创建黑色新画刷   
 	newBrush.CreateSolidBrush(RGB(0, 0, 0));
@@ -310,35 +301,92 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	CRect rectPicture;
-
-	if (is_open_ == 0)
+	long renVal = 0;	//单次数据采集
+	if (op == 0)	//保证是“开始”后再计算
 	{
-		int renVal = ZT7660_AIonce(1, 0, 21, 2, 0, 0, 0, 0, 0, 0, 0); //1,0,21,2,0,0,0,0,0,0,0
-		
-		CString ren_val = _T("");
-		ren_val.Format(_T("%d"), renVal);
-		AfxMessageBox(ren_val);
+		//阶跃
+		if (m_comSig.GetCurSel() == 0 && nIDEvent == 1)
+		{
+			double integral;	//算真正的积分项
+			CString tempStr;	//用于输出一些值
 
-		last_error_ = current_error_;
-		error_integral_ += last_error_ * dt_ / 1000;
-		current_error_ = reference_value_ - double(renVal / 40);
-		control_quantity_ = 40 * (k_p_ * current_error_ + k_i_ * error_integral_ + k_d_ * (current_error_ - last_error_) / dt_);
-		
-		ZT7660_AOonce(1, 1, 16, control_quantity_);
+			//检测函数
+			//tempStr.Format(_T("%f,%d,%d,%d"), m_valP, m_ChMode, m_ADrange, m_ADAmp);
+			//MessageBox(tempStr);	//检测是否进入这个函数
 
-		// TODO: 使数值显示到对话框中
-		// UpdateValue否？
+			//指定通道单次采集
+			integral = Error1 + m_valI;
+			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / 16;
+			tempStr.Format(_T("%d"), renVal);
+			SetDlgItemText(IDC_CHANNEL_READ, tempStr);	//输出通道读数
 
+			//误差
+			Error2 = Error1;
+			Error1 = m_valStepAmp - renVal;
+			tempStr.Format(_T("%.6f"), Error1);
+			SetDlgItemText(IDC_DIFF, tempStr);	//把误差输出
+			UpdateData(FALSE);
+
+			//反馈
+			ErrorValue = 40 * (m_valP * Error1 + m_valI + m_valD * (Error1 - Error2));
+
+			ZT7660_AOonce(1, 1, 6, ErrorValue);
+
+			tempStr.Format(_T("erro number: %d"), ZT7660_GetLastErr());
+
+			//MessageBox(tempStr);
+
+			UpdateData(TRUE);
+
+			printf("%ld\n", renVal);
+			printf("%ld\n", ErrorValue);
+
+			
+		}
+		//正弦
+		//else if (m_comSig.GetCurSel() == 1 && nIDEvent == 1) 
+		//{
+		//	double integral, fre, peak, feedback=0;	//计算积分项、频率、幅值和返回函数
+		//	CString tempStr, strf;	//用于输出一些值
+
+		//	m_sinAmp.GetWindowText(strf);
+		//	fre = _tstof(strf);
+		//	peak = GetDlgItemInt(IDC_SIN_AMP);
+
+		//	feedback = 125 + peak * sin(fre * 6.28 * t);
+		//	renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / 4;
+
+		//	tempStr.Format(_T("%d"), renVal);
+		//	SetDlgItemText(IDC_DIFF, tempStr);
+
+		//	tempStr.Format(_T("%.2f"), feedback);
+		//	SetDlgItemText(IDC_IN_SIG, tempStr);
+
+		//	Error2 = Error1;
+		//	Error1 = m_valStepAmp - renVal;
+		//	tempStr.Format(_T("%.2f"), Error1);
+		//	SetDlgItemText(IDC_DIFF, tempStr);
+
+		//	//反馈
+		//	ErrorValue = 40 * (m_valP * Error1 + m_valI + m_valD * (Error1 - Error2));
+
+		//	ZT7660_AOonce(1, 1, 6, ErrorValue);
+
+		//	tempStr.Format(_T("erro number: %d"), ZT7660_GetLastErr());
+
+		//	SetWindowText(tempStr);
+
+		//	UpdateData(TRUE);
+		//}
 	}
 	
-
 	// 将数组中的所有元素前移一个单位，第一个元素丢弃   
 	for (int i = 0; i < POINT_COUNT - 1; i++)
 	{
 		m_nzValues[i] = m_nzValues[i + 1];
 	}
 	// 为最后一个元素赋一个80以内的随机数值（整型）   
-	//m_nzValues[POINT_COUNT - 1] = rand() % 80;
+	m_nzValues[POINT_COUNT - 1] = renVal;
 	// 获取绘图控件的客户区坐标   
 	// （客户区坐标以窗口的左上角为原点，这区别于以屏幕左上角为原点的屏幕坐标）   
 	m_picDraw.GetClientRect(&rectPicture);
@@ -372,23 +420,39 @@ void CWave1Dlg::OnBnClickedOpen()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	TCHAR szFilter[] = _T("文本文件(*.txt)|*.txt|所有文件(*.*)|*.*||");//文件过滤器
-
-	CFileDialog fileDlg(TRUE, _T("txt"), NULL, 0, szFilter, this);
-	if (IDOK == fileDlg.DoModal())//打开对话框关闭成功
+	CString FileName = _T("E:\\自控\\data.txt");
+	CStdioFile FileWrite;
+	//char string[10];
+	CString strt;
+	if (!FileWrite.Open(FileName, CFile::modeWrite | CFile::modeCreate | CFile::typeText))
 	{
-		CStdioFile MyFile;//创建文件实体
-		MyFile.Open(fileDlg.GetPathName(), CFile::modeRead);//打开文件，只读
-
-		CString srtbuf;//接收数据的缓存
-		for (int i = 0; i < POINT_COUNT && MyFile.ReadString(srtbuf); i++)//存储数组用完或者读取到文件尾
-		{
-			m_nzValues[i] = _ttof(srtbuf)*10+10;
-		}//字符串转为double
-		//CRect rectPicture;
-		//m_picDraw.GetClientRect(&rectPicture);//把picture的控件尺寸付给rectPicture对象，传递给以便DrawWave
-		//DrawWave(m_picDraw.GetDC(), rectPicture);
-
+		AfxMessageBox(_T("打开文件资源失败"));
+		return;
 	}
+
+	for (int i = 0; i < POINT_COUNT - 1; i++)
+	{
+		strt.Format(_T("%d\n"),m_nzValues[i]);
+		FileWrite.WriteString(strt);
+	}
+	
+
+	//CFileDialog fileDlg(TRUE, _T("txt"), NULL, 0, szFilter, this);
+	//if (IDOK == fileDlg.DoModal())//打开对话框关闭成功
+	//{
+	//	CStdioFile MyFile;//创建文件实体
+	//	MyFile.Open(fileDlg.GetPathName(), CFile::modeRead);//打开文件，只读
+
+	//	CString srtbuf;//接收数据的缓存
+	//	for (int i = 0; i < POINT_COUNT && MyFile.ReadString(srtbuf); i++)//存储数组用完或者读取到文件尾
+	//	{
+	//		m_nzValues[i] = _ttof(srtbuf)*10+10;
+	//	}//字符串转为double
+	//	//CRect rectPicture;
+	//	//m_picDraw.GetClientRect(&rectPicture);//把picture的控件尺寸付给rectPicture对象，传递给以便DrawWave
+	//	//DrawWave(m_picDraw.GetDC(), rectPicture);
+
+	//}
 }
 
 
@@ -400,8 +464,16 @@ void CWave1Dlg::OnCbnSelchangeChannel()
 	CString strWeb;	//保存数据缓存
 	int nSel;	//获得索引变量
 	nSel = m_comChannel.GetCurSel();	//获得索引内容
+	if (nSel == 0) {
+		m_ChMode = 0;//单端
+	}
+	else if (nSel == 1)
+	{
+		m_ChMode = 2;//双端
+	}
 	m_comChannel.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
+	UpdateData(TRUE);
 	UpdateData(false);	//更新显示及变量内容
 
 }
@@ -413,8 +485,10 @@ void CWave1Dlg::OnCbnSelchangeChannelNum()
 	CString strWeb;	//保存数据缓存
 	int nSel;	//获得索引变量
 	nSel = m_comChannelNum.GetCurSel();	//获得索引内容
+	
 	m_comChannelNum.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
+	UpdateData(TRUE);
 	UpdateData(false);	//更新显示及变量内容
 }
 
@@ -425,8 +499,25 @@ void CWave1Dlg::OnCbnSelchangeRange()
 	CString strWeb;	//保存数据缓存
 	int nSel;	//获得索引变量
 	nSel = m_comRange.GetCurSel();	//获得索引内容
-	m_comRange.GetLBText(nSel, strWeb);	//获得数据缓存内容
+	switch (nSel) {
+	case(0):
+		m_ADrange = 1;	//0 -- 5000mV
+		break;
+	case(1):
+		m_ADrange = 2;	// 0 -- 10000mV 
+		break;
+	case(2):
+		m_ADrange = 5;	//-5000 -- 5000mV
+		break;
+	case(3):
+		m_ADrange = 0;	//原码值
+		break;
+	default:
+		break;
+	}
+	//m_comRange.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
+	UpdateData(true);	//更新显示及变量内容
 	UpdateData(false);	//更新显示及变量内容
 }
 
@@ -436,9 +527,10 @@ void CWave1Dlg::OnCbnSelchangeGain()
 	// TODO: 在此添加控件通知处理程序代码
 	CString strWeb;	//保存数据缓存
 	int nSel;	//获得索引变量
-	nSel = m_comGain.GetCurSel();	//获得索引内容
-	m_comGain.GetLBText(nSel, strWeb);	//获得数据缓存内容
+	m_ADAmp = m_comGain.GetCurSel();	//获得索引内容
+	//m_comSig.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
+	UpdateData(TRUE);	//更新显示及变量内容
 	UpdateData(false);	//更新显示及变量内容
 }
 
@@ -473,7 +565,6 @@ void CWave1Dlg::OnCbnSelchangeStep()
 		break;
 	case 1:
 		MessageBox(L"选择的数据为关闭");
-		break;
 	default:
 		break;
 	}
@@ -485,32 +576,37 @@ void CWave1Dlg::OnCbnSelchangeStep()
 void CWave1Dlg::OnCbnSelchangeStepAmp()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CString strWeb;	//保存数据缓存
-	int nSel;	//获得索引变量
-	nSel = m_comStepAmp.GetCurSel();	//获得索引内容
-	m_comStepAmp.GetLBText(nSel, strWeb);	//获得数据缓存内容
-	//xianshi = strWeb;	//将索引内容传递给另一变量
+
 	UpdateData(false);	//更新显示及变量内容
 }
 
 
 void CWave1Dlg::OnBnClickedStart()
 {
-	// TODO: 在此读入用户输入数据
-	is_open_ = ZT7660_OpenDevice(1);
-	switch (is_open_)
+	// TODO: 在此添加控件通知处理程序代码
+	int err;
+	CString string;
+	op = ZT7660_OpenDevice(1);
+	cl = 1;
+	switch (op)
 	{
 	case 0:
-		MessageBox(L"success");
+		MessageBox(L"Open Device success");
 		break;
 	case -1:
-		MessageBox(L"failed");
+		err = ZT7660_GetLastErr();
+		string.Format(_T("Open Device failed\nError code: %d"), err); //将变量组装到字符串中
+		MessageBox(string);
 		break;
 	default:
-		MessageBox(L"none");
+		MessageBox(L"Open Device none operation");
 		break;
 	}
-
+	// 启动定时器，ID为1，定时时间为200ms   
+	SetTimer(1, 200, NULL);
+	CTime t1;
+	t1 = CTime::GetCurrentTime();//获取当前系统时间
+	
 	//exit(0);
 }
 
@@ -518,25 +614,31 @@ void CWave1Dlg::OnBnClickedStart()
 void CWave1Dlg::OnBnClickedEnd()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	is_closed_ = ZT7660_CloseDevice(1);
-	switch (is_closed_)
+	int err;
+	CString string;
+	cl = ZT7660_CloseDevice(1);
+	op = 1;
+	KillTimer(1);
+	switch (cl)
 	{
 	case 0:
-		MessageBox(L"success");
-		is_open_ = 1;
+		MessageBox(L"Close Device success");
 		break;
 	case -1:
-		MessageBox(L"failed");
+		err = ZT7660_GetLastErr();
+		string.Format(_T("Close Device failed\nError code: %d"), err); //将变量组装到字符串中
+		MessageBox(string);
 		break;
 	default:
-		MessageBox(L"none");
+		MessageBox(L"Close Device none operation");
 		break;
 	}
+
 	//exit(0);
 }
 
 
-void CWave1Dlg::OnEnChangeChannelRead()
+void CWave1Dlg::OnEnChangeP()
 {
 	// TODO:  如果该控件是 RICHEDIT 控件，它将不
 	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
@@ -544,4 +646,50 @@ void CWave1Dlg::OnEnChangeChannelRead()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
+	UpdateData(TRUE);
+	//UpdateData(FALSE);
+}
+
+
+void CWave1Dlg::OnEnChangeI()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
+	UpdateData(TRUE);
+	//UpdateData(FALSE);
+}
+
+
+void CWave1Dlg::OnEnChangeD()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
+	CString str;
+
+	//m_valD= _ttof(GetDlgItemText(IDC_D, str));
+	UpdateData(TRUE);
+	//UpdateData(FALSE);
+}
+
+
+
+
+
+void CWave1Dlg::OnEnChangeStepAmp()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
+	UpdateData(TRUE);
 }
