@@ -9,6 +9,8 @@
 #include "afxdialogex.h"
 #include "usb7660.H"
 
+#include <math.h>
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -54,9 +56,10 @@ END_MESSAGE_MAP()
 
 CWave1Dlg::CWave1Dlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_WAVE1_DIALOG, pParent)
-	, m_valP(30)
-	, m_valI(0.5)
+	, m_valP(18)
+	, m_valI(0.4)
 	, m_valD(0)
+	, m_xAmp(1)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -69,7 +72,7 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_WAVE_DRAW, m_picDraw);
-
+	DDX_Control(pDX, IDC_ERROR_PLOT, m_ErrorDraw);
 	DDX_Control(pDX, IDC_CHANNEL_READ, m_channelRead);
 	DDX_Control(pDX, IDC_IN_SIG, m_inSig);
 	DDX_Control(pDX, IDC_DIFF, m_diff);
@@ -80,7 +83,6 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_RANGE, m_comRange);
 	DDX_Control(pDX, IDC_GAIN, m_comGain);
 	DDX_Control(pDX, IDC_SIG, m_comSig);
-	DDX_Control(pDX, IDC_STEP, m_comStep);
 	DDX_Text(pDX, IDC_STEP_AMP, m_valStepAmp);
 	DDV_MinMaxDouble(pDX, m_valStepAmp, 0, 100000);
 	DDX_Text(pDX, IDC_P, m_valP);
@@ -89,6 +91,15 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxDouble(pDX, m_valI, 0, 100000);
 	DDX_Text(pDX, IDC_D, m_valD);
 	DDV_MinMaxDouble(pDX, m_valD, 0, 100000);
+	DDX_Control(pDX, IDC_DEADZONE, m_DeadZone);
+	DDX_Text(pDX, IDC_EDIT_XAUG, m_xAmp);
+	DDX_Control(pDX, IDC_STEP_SPEED, m_ValStepSpeed);
+	DDX_Control(pDX, IDC_OVERSHOOT, m_ValOvershoot);
+	DDX_Control(pDX, IDC_RISETIME, m_ValRiseTime);
+	DDX_Control(pDX, IDC_SETTLING_TIME, m_ValSettlingTime);
+	DDX_Control(pDX, IDC_COMMUTATION, m_ValCommutationError);
+	DDX_Control(pDX, IDC_ERROR_CODE, m_ValErrorCode);
+	
 }
 
 BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
@@ -108,7 +119,6 @@ BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_RANGE, &CWave1Dlg::OnCbnSelchangeRange)
 	ON_CBN_SELCHANGE(IDC_GAIN, &CWave1Dlg::OnCbnSelchangeGain)
 	ON_CBN_SELCHANGE(IDC_SIG, &CWave1Dlg::OnCbnSelchangeSig)
-	ON_CBN_SELCHANGE(IDC_STEP, &CWave1Dlg::OnCbnSelchangeStep)
 	ON_CBN_SELCHANGE(IDC_STEP_AMP, &CWave1Dlg::OnCbnSelchangeStepAmp)
 	ON_BN_CLICKED(IDC_START, &CWave1Dlg::OnBnClickedStart)
 	ON_BN_CLICKED(IDC_END, &CWave1Dlg::OnBnClickedEnd)
@@ -117,6 +127,7 @@ BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
 	ON_EN_CHANGE(IDC_D, &CWave1Dlg::OnEnChangeD)
 
 	ON_EN_CHANGE(IDC_STEP_AMP, &CWave1Dlg::OnEnChangeStepAmp)
+	ON_BN_CLICKED(IDC_UPDATE, &CWave1Dlg::OnBnClickedUpdate)
 END_MESSAGE_MAP()
 
 
@@ -188,14 +199,9 @@ BOOL CWave1Dlg::OnInitDialog()
 	m_comSig.AddString(_T("正弦"));
 	m_comSig.SetCurSel(0);	// 默认选择第一项   
 	SetDlgItemText(IDC_SIG, _T("阶跃"));	// 编辑框中默认显示第一项的文字“阶跃”
-  
-	// 为“阶跃信号”combo控件的列表框添加列表项
-	m_comStep.AddString(_T("开启"));
-	m_comStep.AddString(_T("关闭"));
-	m_comStep.SetCurSel(0);	// 默认选择第一项   
-	SetDlgItemText(IDC_STEP, _T("开启"));	// 编辑框中默认显示第一项的文字“开启”
+	//m_xAmp = 1;
 
-    return TRUE;  // return TRUE  unless you set the focus to a control   
+	SetWindowText(_T("Tiny Cylinder Controller"));
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -249,7 +255,7 @@ HCURSOR CWave1Dlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture)
+void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x)
 {
 	float fDeltaX;     // x轴相邻两个绘图点的坐标距离   
 	float fDeltaY;     // y轴每个逻辑单位对应的坐标值   
@@ -275,18 +281,84 @@ void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture)
 	// 删除新画刷   
 	newBrush.DeleteObject();
 
-	// 创建实心画笔，粗度为1，颜色为绿色   
-	newPen.CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
+	// 创建实心画笔，粗度为2，颜色为*色   
+	if (x == 1) {
+		newPen.CreatePen(PS_SOLID, 2, RGB(0, 255, 0));
+	}
+	else if (x == 2)
+	{
+		newPen.CreatePen(PS_SOLID, 2, RGB(255, 200, 0));
+	}
 	// 选择新画笔，并将旧画笔的指针保存到pOldPen   
 	pOldPen = pDC->SelectObject(&newPen);
 
 	// 将当前点移动到绘图控件窗口的左下角，以此为波形的起始点   
 	pDC->MoveTo(rectPicture.left, rectPicture.bottom);
-	// 计算m_nzValues数组中每个点对应的坐标位置，并依次连接，最终形成曲线   
+	// 计算m_nzValues数组中每个点对应的坐标位置，并依次连接，最终形成曲线 
+	if (x == 1)
+	{
+		for (int i = 0; i < POINT_COUNT; i++)
+		{
+			nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp;
+			nY = rectPicture.bottom - (int)(m_nzValues[i] * fDeltaY);
+			pDC->LineTo(nX, nY);
+		}
+	}
+	else if (x == 2)
+	{
+		for (int i = 0; i < POINT_COUNT; i++)
+		{
+			nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp;
+			nY = rectPicture.bottom - (int)(m_nzValues2[i] * fDeltaY);
+			pDC->LineTo(nX, nY);
+		}
+	}
+
+	// 恢复旧画笔   
+	pDC->SelectObject(pOldPen);
+	// 删除新画笔   
+	newPen.DeleteObject();
+}
+
+void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
+{
+	float fDeltaX;     // x轴相邻两个绘图点的坐标距离   
+	float fDeltaY;     // y轴每个逻辑单位对应的坐标值   
+	int nX;      // 在连线时用于存储绘图点的横坐标   
+	int nY;      // 在连线时用于存储绘图点的纵坐标   
+	CPen newPen;       // 用于创建新画笔   
+	CPen* pOldPen;     // 用于存放旧画笔   
+	CBrush newBrush;   // 用于创建新画刷   
+	CBrush* pOldBrush; // 用于存放旧画刷   
+
+	// 计算fDeltaX和fDeltaY   
+	fDeltaX = (float)rectPicture.Width() / (POINT_COUNT - 1);
+	fDeltaY = (float)rectPicture.Height() / 250;
+
+	// 创建黑色新画刷   
+	newBrush.CreateSolidBrush(RGB(0, 0, 0));
+	// 选择新画刷，并将旧画刷的指针保存到pOldBrush   
+	pOldBrush = pDC->SelectObject(&newBrush);
+	// 以黑色画刷为绘图控件填充黑色，形成黑色背景   
+	pDC->Rectangle(rectPicture);
+	// 恢复旧画刷   
+	pDC->SelectObject(pOldBrush);
+	// 删除新画刷   
+	newBrush.DeleteObject();
+
+	// 创建实心画笔，粗度为2，颜色为red guys   
+	newPen.CreatePen(PS_SOLID, 2, RGB(255, 0, 0));
+	// 选择新画笔，并将旧画笔的指针保存到pOldPen   
+	pOldPen = pDC->SelectObject(&newPen);
+
+	// 将当前点移动到绘图控件窗口的左下角，以此为波形的起始点   
+	pDC->MoveTo(rectPicture.left, rectPicture.bottom);
+	// 计算m_nzValues数组中每个点对应的坐标位置，并依次连接，最终形成曲线 
+	
 	for (int i = 0; i < POINT_COUNT; i++)
 	{
-		nX = rectPicture.left + (int)(i * fDeltaX);
-		nY = rectPicture.bottom - (int)(m_nzValues[i] * fDeltaY);
+		nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp;
+		nY = rectPicture.bottom - (int)(m_nzValues3[i] * fDeltaY);
 		pDC->LineTo(nX, nY);
 	}
 
@@ -296,104 +368,138 @@ void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture)
 	newPen.DeleteObject();
 }
 
-
 void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	CRect rectPicture;
-	long renVal = 0;	//单次数据采集
-	if (op == 0)	//保证是“开始”后再计算
+	CRect rectPicture_wave;
+	CRect rectPicture_error;
+	double ref = 0;
+	double renVal = 0;	//单次数据采集
+	double dead_zone = 0;
+	int input_denominator = 16;
+	int output_factor = 40;
+	if (op == -1)	//保证是“开始”后再计算; if debug 改成-1
 	{
 		//阶跃
 		if (m_comSig.GetCurSel() == 0 && nIDEvent == 1)
 		{
-			double integral;	//算真正的积分项
-			CString tempStr;	//用于输出一些值
+			//定义变量
+			ref = m_valStepAmp;
+			double integral = 0;	//算真正的积分项
+			CString tempStr, strd;	//用于输出一些值
 
-			//检测函数
-			//tempStr.Format(_T("%f,%d,%d,%d"), m_valP, m_ChMode, m_ADrange, m_ADAmp);
+			//检测面板输入
+			//tempStr.Format(_T("%d,%d,%d,%d"), m_cardN0, m_ChMode, m_ADrange, m_ADAmp);
 			//MessageBox(tempStr);	//检测是否进入这个函数
+			m_DeadZone.GetWindowText(strd);
+			dead_zone = _tstof(strd);
 
 			//指定通道单次采集
-			integral = Error1 + m_valI;
-			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / 16;
-			tempStr.Format(_T("%d"), renVal);
+			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
+
+			//更新面板输出
+			tempStr.Format(_T("%.5f"), renVal);
 			SetDlgItemText(IDC_CHANNEL_READ, tempStr);	//输出通道读数
+			tempStr.Format(_T("%.5f"), ref);
+			SetDlgItemText(IDC_IN_SIG, tempStr); //参考值
 
-			//误差
+			//更新控制参数并输出误差
+			integral = Error1 + integral;
 			Error2 = Error1;
-			Error1 = m_valStepAmp - renVal;
-			tempStr.Format(_T("%.6f"), Error1);
+			Error1 = ref - renVal;
+			tempStr.Format(_T("%.5f"), Error1);
 			SetDlgItemText(IDC_DIFF, tempStr);	//把误差输出
-			UpdateData(FALSE);
+			//UpdateData(FALSE);
 
-			//反馈
-			ErrorValue = 40 * (m_valP * Error1 + m_valI + m_valD * (Error1 - Error2));
+			//控制量计算
+			//TODO: 优化算法，分段控制
+			Actuating_signal = output_factor * (m_valP * Error1 + m_valI * integral + m_valD * (Error1 - Error2));
 
-			ZT7660_AOonce(1, 1, 6, ErrorValue);
+			//控制量输出
+			if(Actuating_signal > 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal + dead_zone);
+			else if(Actuating_signal < 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal - dead_zone);
 
-			tempStr.Format(_T("erro number: %d"), ZT7660_GetLastErr());
+			//板卡状态更新
+			tempStr.Format(_T("%d"), ZT7660_GetLastErr());
+			m_ValErrorCode.SetWindowText(tempStr);
 
-			//MessageBox(tempStr);
+			//UpdateData(TRUE);
 
-			UpdateData(TRUE);
-
-			printf("%ld\n", renVal);
-			printf("%ld\n", ErrorValue);
-
-			
 		}
 		//正弦
-		//else if (m_comSig.GetCurSel() == 1 && nIDEvent == 1) 
-		//{
-		//	double integral, fre, peak, feedback=0;	//计算积分项、频率、幅值和返回函数
-		//	CString tempStr, strf;	//用于输出一些值
+		else if (m_comSig.GetCurSel() == 1 && nIDEvent == 1)
+		{
+			//定义变量
+			double integral = 0;
+			double fre, peak = 0;	//计算积分项、频率、幅值和返回函数
+			CString tempStr, strf, strd;	//用于输出一些值
 
-		//	m_sinAmp.GetWindowText(strf);
-		//	fre = _tstof(strf);
-		//	peak = GetDlgItemInt(IDC_SIN_AMP);
+			//检测面板输入
+			m_DeadZone.GetWindowText(strd);
+			dead_zone = _tstof(strd);
 
-		//	feedback = 125 + peak * sin(fre * 6.28 * t);
-		//	renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / 4;
+			m_sinFre.GetWindowText(strf);
+			fre = _tstof(strf);
+			peak = GetDlgItemInt(IDC_SIN_AMP);
 
-		//	tempStr.Format(_T("%d"), renVal);
-		//	SetDlgItemText(IDC_DIFF, tempStr);
+			
+			//指定通道单次采集
+			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
 
-		//	tempStr.Format(_T("%.2f"), feedback);
-		//	SetDlgItemText(IDC_IN_SIG, tempStr);
+			//更新面板输出
+			tempStr.Format(_T("%.5f"), renVal);
+			SetDlgItemText(IDC_CHANNEL_READ, tempStr);
 
-		//	Error2 = Error1;
-		//	Error1 = m_valStepAmp - renVal;
-		//	tempStr.Format(_T("%.2f"), Error1);
-		//	SetDlgItemText(IDC_DIFF, tempStr);
+			tempStr.Format(_T("%.5f"), ref);
+			SetDlgItemText(IDC_IN_SIG, tempStr); //参考值
 
-		//	//反馈
-		//	ErrorValue = 40 * (m_valP * Error1 + m_valI + m_valD * (Error1 - Error2));
+			//更新控制参数并输出误差
+			tt = tt + 0.01;
+			ref = 125 + peak * sin(tt * fre * 2 * acos(-1)); //不考虑死区
+			integral = Error1 + integral;
+			double tempp = Error1 - Error2; //为什么要上上次？
+			Error2 = Error1;
+			Error1 = ref - renVal;
+			tempStr.Format(_T("%.5f"), Error1);
+			SetDlgItemText(IDC_DIFF, tempStr);
 
-		//	ZT7660_AOonce(1, 1, 6, ErrorValue);
+			//控制量计算
+			//TODO: 优化算法，分段控制
+			Actuating_signal = output_factor * (m_valP * Error1 + m_valI * integral + m_valD * tempp);
 
-		//	tempStr.Format(_T("erro number: %d"), ZT7660_GetLastErr());
+			//控制量输出
+			if (Actuating_signal > 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal + dead_zone);
+			else if (Actuating_signal < 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal - dead_zone);
 
-		//	SetWindowText(tempStr);
+			//板卡状态更新
+			tempStr.Format(_T("%d"), ZT7660_GetLastErr());
+			m_ValErrorCode.SetWindowText(tempStr);
 
-		//	UpdateData(TRUE);
-		//}
+			//UpdateData(TRUE);
+		}
 	}
-	
+
 	// 将数组中的所有元素前移一个单位，第一个元素丢弃   
 	for (int i = 0; i < POINT_COUNT - 1; i++)
 	{
 		m_nzValues[i] = m_nzValues[i + 1];
+		m_nzValues2[i] = m_nzValues2[i + 1];
+		m_nzValues3[i] = m_nzValues3[i + 1];
 	}
-	// 为最后一个元素赋一个80以内的随机数值（整型）   
+
+	//为画图函数赋值
 	m_nzValues[POINT_COUNT - 1] = renVal;
+	m_nzValues2[POINT_COUNT - 1] = ref;
+	m_nzValues3[POINT_COUNT - 1] = Error1;
 	// 获取绘图控件的客户区坐标   
 	// （客户区坐标以窗口的左上角为原点，这区别于以屏幕左上角为原点的屏幕坐标）   
-	m_picDraw.GetClientRect(&rectPicture);
+	m_picDraw.GetClientRect(&rectPicture_wave);
+	m_ErrorDraw.GetClientRect(&rectPicture_error);
 
 	// 绘制波形图   
-	DrawWave(m_picDraw.GetDC(), rectPicture);
-
+	DrawWave(m_picDraw.GetDC(), rectPicture_wave, 1);
+	DrawWave(m_picDraw.GetDC(), rectPicture_wave, 2);
+	DrawError(m_ErrorDraw.GetDC(), rectPicture_error);
 	CDialogEx::OnTimer(nIDEvent);
 }
 
@@ -473,8 +579,8 @@ void CWave1Dlg::OnCbnSelchangeChannel()
 	}
 	m_comChannel.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
-	UpdateData(TRUE);
-	UpdateData(false);	//更新显示及变量内容
+	//UpdateData(TRUE);
+	//UpdateData(false);	//更新显示及变量内容
 
 }
 
@@ -488,8 +594,8 @@ void CWave1Dlg::OnCbnSelchangeChannelNum()
 	
 	m_comChannelNum.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
-	UpdateData(TRUE);
-	UpdateData(false);	//更新显示及变量内容
+	//UpdateData(TRUE);
+	//UpdateData(false);	//更新显示及变量内容
 }
 
 
@@ -517,8 +623,8 @@ void CWave1Dlg::OnCbnSelchangeRange()
 	}
 	//m_comRange.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
-	UpdateData(true);	//更新显示及变量内容
-	UpdateData(false);	//更新显示及变量内容
+	//UpdateData(true);	//更新显示及变量内容
+	//UpdateData(false);	//更新显示及变量内容
 }
 
 
@@ -530,8 +636,8 @@ void CWave1Dlg::OnCbnSelchangeGain()
 	m_ADAmp = m_comGain.GetCurSel();	//获得索引内容
 	//m_comSig.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
-	UpdateData(TRUE);	//更新显示及变量内容
-	UpdateData(false);	//更新显示及变量内容
+	//UpdateData(TRUE);	//更新显示及变量内容
+	//UpdateData(false);	//更新显示及变量内容
 }
 
 
@@ -543,41 +649,31 @@ void CWave1Dlg::OnCbnSelchangeSig()
 	nSel = m_comSig.GetCurSel();	//获得索引内容
 	m_comSig.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
-	UpdateData(false);	//更新显示及变量内容
-}
+	//UpdateData(false);	//更新显示及变量内容
 
-
-void CWave1Dlg::OnCbnSelchangeStep()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	CString strWeb;	//保存数据缓存
-	int nSel;	//获得索引变量
-	nSel = m_comStep.GetCurSel();	//获得索引内容
-	m_comStep.GetLBText(nSel, strWeb);	//获得数据缓存内容
-
-	//xianshi = strWeb;	//将索引内容传递给另一变量
-
-	//按照加入的顺序改变不同选择的操作
-	switch (nSel)
+	if(m_comSig.GetCurSel() == 0)  //阶跃
 	{
-	case 0:
-		MessageBox(L"选择的数据为开启");
-		break;
-	case 1:
-		MessageBox(L"选择的数据为关闭");
-	default:
-		break;
+		m_valP = 18;
+		m_valI = 0.4;
+		m_valD = 0;
+		UpdateData(false);
 	}
-
-	UpdateData(false);	//更新显示及变量内容
+	else if (m_comSig.GetCurSel() == 1)  //正弦
+	{
+		m_valP = 16;
+		m_valI = 0.4;
+		m_valD = 0;
+		UpdateData(false);
+	}
 }
+
 
 
 void CWave1Dlg::OnCbnSelchangeStepAmp()
 {
 	// TODO: 在此添加控件通知处理程序代码
 
-	UpdateData(false);	//更新显示及变量内容
+	//UpdateData(false);	//更新显示及变量内容
 }
 
 
@@ -588,6 +684,7 @@ void CWave1Dlg::OnBnClickedStart()
 	CString string;
 	op = ZT7660_OpenDevice(1);
 	cl = 1;
+	tt = 0;
 	switch (op)
 	{
 	case 0:
@@ -606,7 +703,7 @@ void CWave1Dlg::OnBnClickedStart()
 	SetTimer(1, 200, NULL);
 	CTime t1;
 	t1 = CTime::GetCurrentTime();//获取当前系统时间
-	
+
 	//exit(0);
 }
 
@@ -618,6 +715,7 @@ void CWave1Dlg::OnBnClickedEnd()
 	CString string;
 	cl = ZT7660_CloseDevice(1);
 	op = 1;
+	tt = 0;
 	KillTimer(1);
 	switch (cl)
 	{
@@ -646,8 +744,8 @@ void CWave1Dlg::OnEnChangeP()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
-	UpdateData(TRUE);
-	//UpdateData(FALSE);
+	//UpdateData(TRUE);
+	//UpdateData(FALSE);//本来就没有
 }
 
 
@@ -673,10 +771,12 @@ void CWave1Dlg::OnEnChangeD()
 
 	// TODO:  在此添加控件通知处理程序代码
 	CString str;
+	GetDlgItemText(IDC_D, str);
 
+	m_valD = _ttof(str);
 	//m_valD= _ttof(GetDlgItemText(IDC_D, str));
-	UpdateData(TRUE);
-	//UpdateData(FALSE);
+	//UpdateData(TRUE);
+	//UpdateData(FALSE);//本来就没有
 }
 
 
@@ -691,5 +791,21 @@ void CWave1Dlg::OnEnChangeStepAmp()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
-	UpdateData(TRUE);
+
+	//UpdateData(TRUE);
 }
+
+
+
+
+
+void CWave1Dlg::OnBnClickedUpdate()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData(TRUE);
+	//test
+	//CString str(_T("12"));
+	//m_DeadZone.SetWindowText(str);
+	UpdateData(false);
+}
+

@@ -32,20 +32,28 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
-//	afx_msg void OnStnClickedWaveDraw();
+	//	afx_msg void OnStnClickedWaveDraw();
 	CStatic m_picDraw;
-	int   m_nzValues[POINT_COUNT];
-	int   test = 1;
-	void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture);
+	CStatic m_ErrorDraw;
+	int m_nzValues[POINT_COUNT];
+	int test = 1;
+	void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x);
+	void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture);
+
+	int m_nzValues2[POINT_COUNT];
+	int m_nzValues3[POINT_COUNT];
+
 
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnDestroy();
 	afx_msg void OnBnClickedOk();
 
 	afx_msg void OnBnClickedOpen();
-	
+
 	int op = 1;
 	int cl = 1;
+	float tt = 0;
+	int x;	//判断是画reference还是真实值，1为真实值；2为reference
 
 
 	CEdit m_channelRead;	// 单位 通道读数
@@ -53,19 +61,27 @@ public:
 	CEdit m_diff;	// 单位 差值显示
 	CEdit m_sinAmp;	// 正弦 幅值
 	CEdit m_sinFre;	// 正弦 频率
+	CEdit m_DeadZone; // 死区
+	CEdit m_ValStepSpeed;  // 阶跃目标速度
+	CEdit m_ValOvershoot;  // 最大超调量(百分比)
+	CEdit m_ValRiseTime;  //阶跃上升时间	  
+	CEdit m_ValSettlingTime;  // 阶跃稳定时间
+	CEdit m_ValCommutationError;  // 正弦换向误差
+	CEdit m_ValErrorCode;  // 板卡接口返回的错误代码
 
 	double m_valP;	// 比例控制	
 	double m_valI;	//积分控制
 	double m_valD;	//微分控制
-	double Error1 = 0, Error2 = 0; 	//	计算差值和误差
-	long ErrorValue = 0;
+	double Error1 = 0, Error2 = 0; 	//	计算差值和误差, Error1 = 这次的；Error2 = 上次的
+	double Actuating_signal = 0;
+	double m_xAmp = 1;	//横轴放大倍数
 
 	CComboBox m_comChannel;	// 通道方式 combo
 	CComboBox m_comChannelNum;	//通道数 combo
 	CComboBox m_comRange;	// 量程 combo	
 	CComboBox m_comGain;	// 增益 combo
 	CComboBox m_comSig;	// 信号选择 阶跃/sin
-	CComboBox m_comStep;	// 阶跃信号 combo
+
 
 	double m_valStepAmp;	//阶跃 幅值 combo
 
@@ -80,7 +96,6 @@ public:
 	afx_msg void OnCbnSelchangeRange();
 	afx_msg void OnCbnSelchangeGain();
 	afx_msg void OnCbnSelchangeSig();
-	afx_msg void OnCbnSelchangeStep();
 	afx_msg void OnCbnSelchangeStepAmp();
 	afx_msg void OnBnClickedStart();
 	afx_msg void OnBnClickedEnd();
@@ -88,7 +103,14 @@ public:
 	afx_msg void OnEnChangeP();
 	afx_msg void OnEnChangeI();
 	afx_msg void OnEnChangeD();
-	afx_msg void OnEnChangeEdit1();
 
 	afx_msg void OnEnChangeStepAmp();
+
+
+	
+
+	
+
+	afx_msg void OnBnClickedUpdate();
+
 };
