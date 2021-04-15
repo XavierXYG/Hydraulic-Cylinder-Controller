@@ -84,6 +84,7 @@ public:
 
 
 	double m_valStepAmp;	//阶跃 幅值 combo
+	double m_valStepmV;  // 测死区电压阶跃
 
 	int m_cardN0 = 1;	//模块号
 	int m_ChMode = 0;	//通道方式
@@ -112,5 +113,4 @@ public:
 	
 
 	afx_msg void OnBnClickedUpdate();
-
 };

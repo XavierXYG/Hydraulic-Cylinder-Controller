@@ -60,6 +60,7 @@ CWave1Dlg::CWave1Dlg(CWnd* pParent /*=nullptr*/)
 	, m_valI(0.4)
 	, m_valD(0)
 	, m_xAmp(1)
+	, m_valStepmV(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -99,7 +100,8 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SETTLING_TIME, m_ValSettlingTime);
 	DDX_Control(pDX, IDC_COMMUTATION, m_ValCommutationError);
 	DDX_Control(pDX, IDC_ERROR_CODE, m_ValErrorCode);
-	
+
+	DDX_Text(pDX, IDC_STEP_AMP_MV, m_valStepmV);
 }
 
 BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
@@ -197,6 +199,7 @@ BOOL CWave1Dlg::OnInitDialog()
 	// 为“信号选择”combo控件的列表框添加列表项
 	m_comSig.AddString(_T("阶跃"));
 	m_comSig.AddString(_T("正弦"));
+	m_comSig.AddString(_T("测死区"));
 	m_comSig.SetCurSel(0);	// 默认选择第一项   
 	SetDlgItemText(IDC_SIG, _T("阶跃"));	// 编辑框中默认显示第一项的文字“阶跃”
 	//m_xAmp = 1;
@@ -333,7 +336,7 @@ void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
 
 	// 计算fDeltaX和fDeltaY   
 	fDeltaX = (float)rectPicture.Width() / (POINT_COUNT - 1);
-	fDeltaY = (float)rectPicture.Height() / 250;
+	fDeltaY = (float)rectPicture.Height() / 10;
 
 	// 创建黑色新画刷   
 	newBrush.CreateSolidBrush(RGB(0, 0, 0));
@@ -359,7 +362,7 @@ void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
 	{
 		nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp;
 		nY = rectPicture.bottom - (int)(m_nzValues3[i] * fDeltaY);
-		pDC->LineTo(nX, nY);
+		if(m_nzValues3[i] > 0 && m_nzValues3[i] < 10)  pDC->LineTo(nX, nY);
 	}
 
 	// 恢复旧画笔   
@@ -375,10 +378,11 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	CRect rectPicture_error;
 	double ref = 0;
 	double renVal = 0;	//单次数据采集
+	double renVolt = 0;  //单词电压返回值，用于测试
 	double dead_zone = 0;
 	int input_denominator = 16;
 	int output_factor = 40;
-	if (op == -1)	//保证是“开始”后再计算; if debug 改成-1
+	if (op == 0)	//保证是“开始”后再计算; if debug 改成-1
 	{
 		//阶跃
 		if (m_comSig.GetCurSel() == 0 && nIDEvent == 1)
@@ -477,6 +481,52 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 
 			//UpdateData(TRUE);
 		}
+		else if (m_comSig.GetCurSel() == 2 && nIDEvent == 1) //测死区
+		{
+			//定义变量
+			ref = m_valStepmV;
+			double integral = 0;	//算真正的积分项
+			CString tempStr, strd;	//用于输出一些值
+
+			//检测面板输入
+			//tempStr.Format(_T("%d,%d,%d,%d"), m_cardN0, m_ChMode, m_ADrange, m_ADAmp);
+			//MessageBox(tempStr);	//检测是否进入这个函数
+			m_DeadZone.GetWindowText(strd);
+			dead_zone = _tstof(strd);
+
+			//指定通道单次采集
+			renVolt = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0);
+			renVal = renVolt / input_denominator;
+
+			//更新面板输出
+			tempStr.Format(_T("%.5f"), renVolt);
+			SetDlgItemText(IDC_CHANNEL_READ, tempStr);	//输出通道读数
+			tempStr.Format(_T("%.5f"), ref);
+			SetDlgItemText(IDC_IN_SIG, tempStr); //电压参考值
+
+			//更新控制参数并输出误差
+			integral = Error1 + integral;
+			Error2 = Error1;
+			Error1 = ref - renVolt;
+			tempStr.Format(_T("%.5f"), Error1);
+			SetDlgItemText(IDC_DIFF, tempStr);	//把误差输出
+			//UpdateData(FALSE);
+
+			//控制量计算
+			//TODO: 优化算法，分段控制
+			Actuating_signal = (m_valP * Error1 + m_valI * integral + m_valD * (Error1 - Error2));
+
+			//控制量输出
+			if (Actuating_signal > 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal + dead_zone);
+			else if (Actuating_signal < 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal - dead_zone);
+
+			//板卡状态更新
+			tempStr.Format(_T("%d"), ZT7660_GetLastErr());
+			m_ValErrorCode.SetWindowText(tempStr);
+
+			//UpdateData(TRUE);
+
+		}
 	}
 
 	// 将数组中的所有元素前移一个单位，第一个元素丢弃   
@@ -490,7 +540,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	//为画图函数赋值
 	m_nzValues[POINT_COUNT - 1] = renVal;
 	m_nzValues2[POINT_COUNT - 1] = ref;
-	m_nzValues3[POINT_COUNT - 1] = Error1;
+	m_nzValues3[POINT_COUNT - 1] = Error1 + 5;
 	// 获取绘图控件的客户区坐标   
 	// （客户区坐标以窗口的左上角为原点，这区别于以屏幕左上角为原点的屏幕坐标）   
 	m_picDraw.GetClientRect(&rectPicture_wave);
@@ -661,6 +711,13 @@ void CWave1Dlg::OnCbnSelchangeSig()
 	else if (m_comSig.GetCurSel() == 1)  //正弦
 	{
 		m_valP = 16;
+		m_valI = 0.4;
+		m_valD = 0;
+		UpdateData(false);
+	}
+	else if (m_comSig.GetCurSel() == 2)  //死区
+	{
+		m_valP = 18;
 		m_valI = 0.4;
 		m_valD = 0;
 		UpdateData(false);
