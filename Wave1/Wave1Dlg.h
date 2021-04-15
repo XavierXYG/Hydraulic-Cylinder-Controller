@@ -68,6 +68,8 @@ public:
 	CEdit m_ValSettlingTime;  // 阶跃稳定时间
 	CEdit m_ValCommutationError;  // 正弦换向误差
 	CEdit m_ValErrorCode;  // 板卡接口返回的错误代码
+	CEdit m_valSatrtPos;  // 每次更新参数后的初始位置
+	CEdit m_valDirection;  // 期望运动方向
 
 	double m_valP;	// 比例控制	
 	double m_valI;	//积分控制
@@ -113,4 +115,6 @@ public:
 	
 
 	afx_msg void OnBnClickedUpdate();
+	
+
 };

@@ -46,6 +46,9 @@
 #define IDC_ERROR_PLOTTXT               1033
 #define IDC_STEP_AMP_MV                 1034
 #define IDC_ERROR_PLOTTXT2              1035
+#define IDC_START_VALUE                 1036
+#define IDC_START_VALUE2                1037
+#define IDC_DIRE                        1037
 
 // Next default values for new objects
 // 
@@ -53,7 +56,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1034
+#define _APS_NEXT_CONTROL_VALUE         1038
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
