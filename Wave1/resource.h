@@ -47,8 +47,9 @@
 #define IDC_STEP_AMP_MV                 1034
 #define IDC_ERROR_PLOTTXT2              1035
 #define IDC_START_VALUE                 1036
-#define IDC_START_VALUE2                1037
 #define IDC_DIRE                        1037
+#define IDC_SIG2                        1038
+#define IDC_SET_DIR                     1038
 
 // Next default values for new objects
 // 

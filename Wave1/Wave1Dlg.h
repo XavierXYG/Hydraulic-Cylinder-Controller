@@ -55,6 +55,8 @@ public:
 	float tt = 0;
 	int x;	//判断是画reference还是真实值，1为真实值；2为reference
 
+	int input_denominator = 16;
+	int output_factor = 40;
 
 	CEdit m_channelRead;	// 单位 通道读数
 	CEdit m_inSig;	// 单位 输入信号
@@ -71,18 +73,33 @@ public:
 	CEdit m_valSatrtPos;  // 每次更新参数后的初始位置
 	CEdit m_valDirection;  // 期望运动方向
 
-	double m_valP;	// 比例控制	
+	double m_valP;	// 比例控制
 	double m_valI;	//积分控制
 	double m_valD;	//微分控制
+
+	int para_flag = 1;  //记录当前输入参数是正向的还是反向的
+	double forward_P;
+	double backward_P;
+	double forward_I;
+	double backward_I;
+	double forward_D;
+	double backward_D;
+
 	double Error1 = 0, Error2 = 0; 	//	计算差值和误差, Error1 = 这次的；Error2 = 上次的
 	double Actuating_signal = 0;
 	double m_xAmp = 1;	//横轴放大倍数
+	double start_pos = -1;
+
+	//double starting_time; //恒等于0
+	bool is_rised = 0;  //判断是否达到过100%的ref，达到过就不再更新tr
+	int settle_count = 0;  //计数，上下不超过3%，否则清零，到100个（1s）计算ts
 
 	CComboBox m_comChannel;	// 通道方式 combo
 	CComboBox m_comChannelNum;	//通道数 combo
 	CComboBox m_comRange;	// 量程 combo	
 	CComboBox m_comGain;	// 增益 combo
 	CComboBox m_comSig;	// 信号选择 阶跃/sin
+	CComboBox m_comDir;  // 调参时不同方向参数不同
 
 
 	double m_valStepAmp;	//阶跃 幅值 combo
@@ -117,4 +134,7 @@ public:
 	afx_msg void OnBnClickedUpdate();
 	
 
+	
+	
+	afx_msg void OnCbnSelchangeSetDir();
 };

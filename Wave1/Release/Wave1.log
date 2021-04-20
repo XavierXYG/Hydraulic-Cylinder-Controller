@@ -1,0 +1,32 @@
+﻿  Wave1.cpp
+  Wave1Dlg.cpp
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(315,19): warning C4244: “初始化”: 从“LONG”转换到“float”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(316,19): warning C4244: “初始化”: 从“LONG”转换到“float”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(321,54): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(325,49): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(326,47): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(340,54): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(345,50): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(346,48): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(393,54): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(395,20): warning C4244: “初始化”: 从“LONG”转换到“float”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(396,20): warning C4244: “初始化”: 从“LONG”转换到“float”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(398,66): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(399,65): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(511,70): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(512,75): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(537,12): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(581,71): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(582,76): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(626,45): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(627,50): warning C4244: “参数”: 从“double”转换到“long”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(647,32): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(648,33): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(649,40): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Wave1Dlg.cpp(791,6): warning C4101: “nSel”: 未引用的局部变量
+  正在生成代码
+  10 of 236 functions ( 4.2%) were compiled, the rest were copied from previous compilation.
+    1 functions were new in current compilation
+    6 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  Wave1.vcxproj -> C:\Users\XavierGG\Desktop\Hydraulic-Cylinder-Controller\Wave1\Release\Wave1.exe
