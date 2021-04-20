@@ -1,7 +1,5 @@
-﻿
-// Wave1Dlg.cpp: 实现文件
+﻿// Wave1Dlg.cpp: 实现文件
 //
-
 #include "pch.h"
 #include "framework.h"
 #include "Wave1.h"
@@ -221,7 +219,7 @@ BOOL CWave1Dlg::OnInitDialog()
 	forward_P = 5;
 	forward_I = 0.3;
 	forward_D = 0;
-	backward_P = 5;
+	backward_P = 20;
 	backward_I = 0.3;
 	backward_D = 0;
 
@@ -418,12 +416,15 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	double renVolt = 0;  //单词电压返回值，用于测试
 	double dead_zone = 0;
 	int direction = 0;
-	double maximum_step_value = 0;
 	double overshoot = 0;
-	int count_period = 1;
+	int count_period = 2;
 
-	if (op == -1)	//保证是“开始”后再计算; if debug 改成-1
+	if (op == 0)	//保证是“开始”后再计算; if debug 改成-1
 	{
+
+		tt = tt + 0.01;
+		GetLocalTime(&t2);//获取当前系统时间
+
 		//阶跃
 		if (m_comSig.GetCurSel() == 0 && nIDEvent == 1)
 		{
@@ -439,14 +440,15 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			dead_zone = _tstof(strd);
 
 			//指定通道单次采集
-			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
+			renVolt = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0);
+			renVal = double(renVolt / input_denominator);
 
 			//判断方向
-			if (ref >= renVal) direction = 1;
-			else if (ref < renVal) direction = -1;
+			if (ref >= start_pos) direction = 1;
+			else if (ref < start_pos) direction = -1;
 
 			//更新面板输出
-			tempStr.Format(_T("%.5f"), renVal);
+			tempStr.Format(_T("%.5f"), renVolt);
 			SetDlgItemText(IDC_CHANNEL_READ, tempStr);	//输出通道读数
 			tempStr.Format(_T("%.5f"), ref);
 			SetDlgItemText(IDC_IN_SIG, tempStr); //参考值
@@ -454,15 +456,15 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			if (direction == 1 && ref != start_pos)  //判断最大超调
 			{
 				if (renVal > maximum_step_value) maximum_step_value = renVal;
-				overshoot = (maximum_step_value - start_pos) / (ref - start_pos);
-				tempStr.Format(_T("%.5f"), 100 * overshoot);
+				overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 			}
 			else if (direction == -1 && ref != start_pos)
 			{
 				if (renVal < maximum_step_value) maximum_step_value = renVal;
-				overshoot = (maximum_step_value - start_pos) / (ref - start_pos);
-				tempStr.Format(_T("%.5f"), 100 * overshoot);
+				overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 			}
 
@@ -473,18 +475,18 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 				SetDlgItemText(IDC_RISETIME, tempStr);
 			}
 
-			if (abs(renVal - ref) <= 0.03 * ref)  settle_count++;  //计算稳定时间
+			if (abs(renVal - ref) <= 0.03 * abs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
 			else settle_count = 0;
-			if (settle_count == count_period)  //1s
+			if (settle_count == 100 * count_period)  //1s = 100 * 10ms
 			{
-				tempStr.Format(_T("%.5f"), tt - 100 * count_period);
+				tempStr.Format(_T("%.5f"), tt - count_period);
 				SetDlgItemText(IDC_SETTLING_TIME, tempStr);
 			}
 
 			//更新控制参数并输出误差
 			integral = Error1 + integral;
 			Error2 = Error1;
-			Error1 = ref - renVal;
+			Error1 = double(ref - renVal);
 			tempStr.Format(_T("%.5f"), Error1);
 			SetDlgItemText(IDC_DIFF, tempStr);	//把误差输出
 			//UpdateData(FALSE);
@@ -534,7 +536,6 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			fre = _tstof(strf);
 			peak = GetDlgItemInt(IDC_SIN_AMP);
 
-			tt = tt + 0.01;
 			ref = 125 + peak * sin(tt * fre * 2 * acos(-1)); //不考虑死区
 			
 			//指定通道单次采集
@@ -809,20 +810,22 @@ void CWave1Dlg::OnCbnSelchangeSig()
 
 	if(m_comSig.GetCurSel() == 0)  //阶跃
 	{
+		forward_P = 5;
+		forward_I = 0.3;
+		forward_D = 0;
+		backward_P = 20;
+		backward_I = 0.3;
+		backward_D = 0;
 		if (para_flag == 1)
 		{
-			forward_P = 5;
-			forward_I = 0.3;
-			forward_D = 0;
+			
 			m_valP = forward_P;
 			m_valI = forward_I;
 			m_valD = forward_D;
 		}
 		else if (para_flag == -1)
 		{
-			backward_P = 5;
-			backward_I = 0.3;
-			backward_D = 0;
+			
 			m_valP = backward_P;
 			m_valI = backward_I;
 			m_valD = backward_D;
@@ -836,20 +839,34 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		//m_valP = 8;
 		//m_valI = 0.4;
 		//m_valD = 0.10;
+
+		/*###########################################无负载*/
+
+		forward_P = 10;
+		forward_I = 0.4;
+		forward_D = 0.15;
+		backward_P = 12;
+		backward_I = 0.46;
+		backward_D = 0.13;
+
+		/**###########################################有负载*/ 
+
+		//forward_P = 10;
+		//forward_I = 0.4;
+		//forward_D = 0.10;
+		//backward_P = 20.5;
+		//backward_I = 0.46;
+		//backward_D = 0.13;
 		if (para_flag == 1)
 		{
-			forward_P = 8;
-			forward_I = 0.4;
-			forward_D = 0.10;
+
 			m_valP = forward_P;
 			m_valI = forward_I;
 			m_valD = forward_D;
 		}
 		else if (para_flag == -1)
 		{
-			backward_P = 8;
-			backward_I = 0.4;
-			backward_D = 0.10;
+
 			m_valP = backward_P;
 			m_valI = backward_I;
 			m_valD = backward_D;
@@ -882,12 +899,18 @@ void CWave1Dlg::OnCbnSelchangeSetDir()
 	if (m_comDir.GetCurSel() == 0)  //正向
 	{
 		para_flag = 1;
-		//UpdateData(false);
+		m_valP = forward_P;
+		m_valI = forward_I;
+		m_valD = forward_D;
+		UpdateData(false);
 	}
 	else if (m_comDir.GetCurSel() == 1)  //反向
 	{
 		para_flag = -1;
-		//UpdateData(false);
+		m_valP = backward_P;
+		m_valI = backward_I;
+		m_valD = backward_D;
+		UpdateData(false);
 	}
 }
 
@@ -901,6 +924,22 @@ void CWave1Dlg::OnCbnSelchangeStepAmp()
 
 void CWave1Dlg::OnBnClickedStart()
 {
+	tt = 0;
+	is_rised = 0;
+	//记录初始位置
+	CString tempStr;
+	double renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
+	tempStr.Format(_T("%.5f"), renVal);
+	SetDlgItemText(IDC_START_VALUE, tempStr);	//输出通道读数
+	start_pos = renVal;
+	maximum_step_value = start_pos;
+	////记录初始位置
+	//CString tempStr;
+	//double renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
+	//tempStr.Format(_T("%.5f"), renVal);
+	//SetDlgItemText(IDC_START_VALUE, tempStr);	//输出通道读数
+	//start_pos = renVal;
+
 	// TODO: 在此添加控件通知处理程序代码
 	int err;
 	CString string;
@@ -923,8 +962,6 @@ void CWave1Dlg::OnBnClickedStart()
 	}
 	// 启动定时器，ID为1，定时时间为200ms   
 	SetTimer(1, 10, NULL);
-	CTime t1;
-	t1 = CTime::GetCurrentTime();//获取当前系统时间
 
 	//exit(0);
 }
@@ -1024,12 +1061,19 @@ void CWave1Dlg::OnEnChangeStepAmp()
 
 void CWave1Dlg::OnBnClickedUpdate()
 {
+	GetLocalTime(&t1);//获取当前系统时间
+	tt = 0;
+	is_rised = 0;
 	//记录初始位置
 	CString tempStr;
 	double renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
 	tempStr.Format(_T("%.5f"), renVal);
 	SetDlgItemText(IDC_START_VALUE, tempStr);	//输出通道读数
 	start_pos = renVal;
+	maximum_step_value = start_pos;
+
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData(TRUE);
 
 	//根据选择的方向判断更新PID参数
 	if (para_flag == 1)
@@ -1044,8 +1088,6 @@ void CWave1Dlg::OnBnClickedUpdate()
 		backward_I = m_valI;
 		backward_D = m_valD;
 	}
-	// TODO: 在此添加控件通知处理程序代码
-	UpdateData(TRUE);
 
 	//test
 	//CString str(_T("12"));

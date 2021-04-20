@@ -1,5 +1,8 @@
 ﻿
 // Wave1Dlg.h: 头文件
+
+
+#include <windows.h>
 //
 
 #pragma once
@@ -35,13 +38,13 @@ public:
 	//	afx_msg void OnStnClickedWaveDraw();
 	CStatic m_picDraw;
 	CStatic m_ErrorDraw;
-	int m_nzValues[POINT_COUNT];
+	double m_nzValues[POINT_COUNT];
 	int test = 1;
 	void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x);
 	void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture);
 
-	int m_nzValues2[POINT_COUNT];
-	int m_nzValues3[POINT_COUNT];
+	double m_nzValues2[POINT_COUNT];
+	double m_nzValues3[POINT_COUNT];
 
 
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
@@ -55,7 +58,7 @@ public:
 	float tt = 0;
 	int x;	//判断是画reference还是真实值，1为真实值；2为reference
 
-	int input_denominator = 16;
+	int input_denominator = 17.8;
 	int output_factor = 40;
 
 	CEdit m_channelRead;	// 单位 通道读数
@@ -89,6 +92,7 @@ public:
 	double Actuating_signal = 0;
 	double m_xAmp = 1;	//横轴放大倍数
 	double start_pos = -1;
+	double maximum_step_value = 0;
 
 	//double starting_time; //恒等于0
 	bool is_rised = 0;  //判断是否达到过100%的ref，达到过就不再更新tr
@@ -110,6 +114,8 @@ public:
 	int m_ADrange = 1;	//选择对采集到的AD原码值做何种变换，应该与AD采集量程(一般需跳线)相匹配
 	int m_ADAmp = 0;	//0 = 1倍增益(无增益)；1 = 10倍增益；2 = 100倍增益
 	CTime t;
+	SYSTEMTIME t1;  //Update参数按下时的系统时间
+	SYSTEMTIME t2;  //不断更新的系统时间
 
 	afx_msg void OnCbnSelchangeChannel();
 	afx_msg void OnCbnSelchangeChannelNum();
