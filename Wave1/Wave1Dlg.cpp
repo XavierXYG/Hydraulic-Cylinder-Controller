@@ -96,13 +96,14 @@ void CWave1Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_OVERSHOOT, m_ValOvershoot);
 	DDX_Control(pDX, IDC_RISETIME, m_ValRiseTime);
 	DDX_Control(pDX, IDC_SETTLING_TIME, m_ValSettlingTime);
-	DDX_Control(pDX, IDC_COMMUTATION, m_ValCommutationError);
+	// DDX_Control(pDX, IDC_COMMUTATION, m_ValCommutationError);
 	DDX_Control(pDX, IDC_ERROR_CODE, m_ValErrorCode);
 
 	DDX_Text(pDX, IDC_STEP_AMP_MV, m_valStepmV);
 	DDX_Control(pDX, IDC_START_VALUE, m_valSatrtPos);
 	DDX_Control(pDX, IDC_DIRE, m_valDirection);
 	DDX_Control(pDX, IDC_SET_DIR, m_comDir);
+	DDX_Control(pDX, IDC_PEAK_TIME, m_valPeak);
 }
 
 BEGIN_MESSAGE_MAP(CWave1Dlg, CDialogEx)
@@ -419,10 +420,11 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	double overshoot = 0;
 	int count_period = 2;
 
-	if (op == 0)	//保证是“开始”后再计算; if debug 改成-1
+	if (op == -1)	//保证是“开始”后再计算; if debug 改成-1
 	{
 
 		tt = tt + 0.01;
+		t_sin = t_sin + 0.01;
 		GetLocalTime(&t2);//获取当前系统时间
 
 		//阶跃
@@ -456,32 +458,49 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			if (direction == 1 && ref != start_pos)  //判断最大超调
 			{
 				if (renVal > maximum_step_value) maximum_step_value = renVal;
-				overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				overshoot = (maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
+
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_PEAK_TIME, tempStr);
 			}
 			else if (direction == -1 && ref != start_pos)
 			{
 				if (renVal < maximum_step_value) maximum_step_value = renVal;
-				overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				overshoot = (maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
+
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_PEAK_TIME, tempStr);
 			}
 
-			if (renVal == ref && !is_rised)  //计算上升时间
+			if (renVal >= ref && !is_rised)  //计算上升时间，注意>=
 			{
 				is_rised = !is_rised;
 				tempStr.Format(_T("%.5f"), tt);
 				SetDlgItemText(IDC_RISETIME, tempStr);
 			}
 
-			if (abs(renVal - ref) <= 0.03 * abs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
-			else settle_count = 0;
-			if (settle_count == 100 * count_period)  //1s = 100 * 10ms
+			//if (abs(renVal - ref) <= 0.03 * abs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
+			//else settle_count = 0;
+			//if (settle_count == 100 * count_period)  //1s = 100 * 10ms
+			//{
+			//	tempStr.Format(_T("%.5f"), tt - count_period);
+			//	SetDlgItemText(IDC_SETTLING_TIME, tempStr);
+			//}
+
+			if (!is_settled && abs(renVal - ref) <= 0.03 * abs(ref - start_pos))  //计算稳定时间
 			{
-				tempStr.Format(_T("%.5f"), tt - count_period);
+				tempStr.Format(_T("%.5f"), tt);
 				SetDlgItemText(IDC_SETTLING_TIME, tempStr);
+				is_settled = 1;
 			}
+			else if (is_settled && abs(renVal - ref) > 0.03 * abs(ref - start_pos)) is_settled = 0;
+
 
 			//更新控制参数并输出误差
 			integral = Error1 + integral;
@@ -536,7 +555,8 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			fre = _tstof(strf);
 			peak = GetDlgItemInt(IDC_SIN_AMP);
 
-			ref = 125 + peak * sin(tt * fre * 2 * acos(-1)); //不考虑死区
+			if (t_sin < 2.5) ref = 50 * t_sin;
+			else  ref = 125 + peak * sin((t_sin-2.5) * fre * 2 * acos(-1)); //不考虑死区
 			
 			//指定通道单次采集
 			renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
@@ -925,7 +945,9 @@ void CWave1Dlg::OnCbnSelchangeStepAmp()
 void CWave1Dlg::OnBnClickedStart()
 {
 	tt = 0;
+	t_sin = 0;
 	is_rised = 0;
+	is_settled = 0;
 	//记录初始位置
 	CString tempStr;
 	double renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
@@ -945,7 +967,7 @@ void CWave1Dlg::OnBnClickedStart()
 	CString string;
 	op = ZT7660_OpenDevice(1);
 	cl = 1;
-	tt = 0;
+	//tt = 0;
 	switch (op)
 	{
 	case 0:
@@ -976,6 +998,7 @@ void CWave1Dlg::OnBnClickedEnd()
 	cl = ZT7660_CloseDevice(1);
 	op = 1;
 	tt = 0;
+	t_sin = 0;
 	KillTimer(1);
 	switch (cl)
 	{

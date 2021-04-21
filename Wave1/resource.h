@@ -29,6 +29,8 @@
 #define IDC_RISETIME                    1017
 #define IDC_SETTLING_TIME               1018
 #define IDC_COMMUTATION                 1019
+#define IDC_SETTLING_TIME2              1019
+#define IDC_PEAK_TIME                   1019
 #define IDC_SIN_AMP                     1020
 #define IDC_SIN_FRE                     1021
 #define IDC_START                       1022
@@ -48,7 +50,6 @@
 #define IDC_ERROR_PLOTTXT2              1035
 #define IDC_START_VALUE                 1036
 #define IDC_DIRE                        1037
-#define IDC_SIG2                        1038
 #define IDC_SET_DIR                     1038
 
 // Next default values for new objects

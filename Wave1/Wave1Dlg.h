@@ -55,7 +55,8 @@ public:
 
 	int op = 1;
 	int cl = 1;
-	float tt = 0;
+	float tt = 0;   //主计时器
+	float t_sin = 0;  //用于发正弦波
 	int x;	//判断是画reference还是真实值，1为真实值；2为reference
 
 	int input_denominator = 17.8;
@@ -71,10 +72,11 @@ public:
 	CEdit m_ValOvershoot;  // 最大超调量(百分比)
 	CEdit m_ValRiseTime;  //阶跃上升时间	  
 	CEdit m_ValSettlingTime;  // 阶跃稳定时间
-	CEdit m_ValCommutationError;  // 正弦换向误差
+	// CEdit m_ValCommutationError;  // 正弦换向误差
 	CEdit m_ValErrorCode;  // 板卡接口返回的错误代码
 	CEdit m_valSatrtPos;  // 每次更新参数后的初始位置
 	CEdit m_valDirection;  // 期望运动方向
+	CEdit m_valPeak;  // 最大超调的峰值时间
 
 	double m_valP;	// 比例控制
 	double m_valI;	//积分控制
@@ -97,6 +99,7 @@ public:
 	//double starting_time; //恒等于0
 	bool is_rised = 0;  //判断是否达到过100%的ref，达到过就不再更新tr
 	int settle_count = 0;  //计数，上下不超过3%，否则清零，到100个（1s）计算ts
+	bool is_settled = 0;  //判断是否稳定
 
 	CComboBox m_comChannel;	// 通道方式 combo
 	CComboBox m_comChannelNum;	//通道数 combo
@@ -143,4 +146,6 @@ public:
 	
 	
 	afx_msg void OnCbnSelchangeSetDir();
+	
+	
 };
