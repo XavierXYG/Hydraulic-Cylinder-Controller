@@ -459,7 +459,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			{
 				if (renVal > maximum_step_value) maximum_step_value = renVal;
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
-				overshoot = (maximum_step_value - ref) / (ref);
+				overshoot = abs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 
@@ -470,7 +470,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			{
 				if (renVal < maximum_step_value) maximum_step_value = renVal;
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
-				overshoot = (maximum_step_value - ref) / (ref);
+				overshoot = abs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 
