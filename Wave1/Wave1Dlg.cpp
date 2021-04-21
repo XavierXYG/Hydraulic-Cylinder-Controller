@@ -459,7 +459,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			{
 				if (renVal > maximum_step_value) maximum_step_value = renVal;
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
-				overshoot = abs(maximum_step_value - ref) / (ref);
+				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 
@@ -470,7 +470,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			{
 				if (renVal < maximum_step_value) maximum_step_value = renVal;
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
-				overshoot = abs(maximum_step_value - ref) / (ref);
+				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
 
@@ -485,7 +485,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 				SetDlgItemText(IDC_RISETIME, tempStr);
 			}
 
-			//if (abs(renVal - ref) <= 0.03 * abs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
+			//if (fabs(renVal - ref) <= 0.03 * fabs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
 			//else settle_count = 0;
 			//if (settle_count == 100 * count_period)  //1s = 100 * 10ms
 			//{
@@ -493,13 +493,13 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			//	SetDlgItemText(IDC_SETTLING_TIME, tempStr);
 			//}
 
-			if (!is_settled && abs(renVal - ref) <= 0.03 * abs(ref - start_pos))  //计算稳定时间
+			if (!is_settled && fabs(renVal - ref) <= 0.03 * fabs(ref - start_pos))  //计算稳定时间
 			{
 				tempStr.Format(_T("%.5f"), tt);
 				SetDlgItemText(IDC_SETTLING_TIME, tempStr);
 				is_settled = 1;
 			}
-			else if (is_settled && abs(renVal - ref) > 0.03 * abs(ref - start_pos)) is_settled = 0;
+			else if (is_settled && fabs(renVal - ref) > 0.03 * fabs(ref - start_pos)) is_settled = 0;
 
 
 			//更新控制参数并输出误差
