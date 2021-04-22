@@ -666,7 +666,13 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 
 			}
 
-			if (renVal >= 0.95 * ref && !is_rised)  //计算上升时间，注意>=
+			if (direction == 1 && renVal >= 0.95 * ref && !is_rised)  //计算上升时间正向
+			{
+				is_rised = !is_rised;
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_RISETIME, tempStr);
+			}
+			else if (direction == -1 && renVal <= 1.05 * ref && !is_rised)  //计算上升时间反向
 			{
 				is_rised = !is_rised;
 				tempStr.Format(_T("%.5f"), tt);
@@ -1073,13 +1079,13 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		rear_I_forward = 0.003;
 		rear_D_forward = 0.003;
 		front_P_backward = 100;
-		rear_P_backward = 30;
-		rear_I_backward = 0.003;
-		rear_D_backward = 0.03;
+		rear_P_backward = 3.5;
+		rear_I_backward = 0.018;
+		rear_D_backward = 0.00;
 
 
-		/*3负载*/
-		/*front_P_forward = 30;
+		///*3负载*/
+		/*front_P_forward = 50;
 		rear_P_forward = 3.5;
 		rear_I_forward = 0.015;
 		rear_D_forward = 0.01;
@@ -1120,12 +1126,12 @@ void CWave1Dlg::OnCbnSelchangeSig()
 
 		/**3负载*/ 
 
-		//forward_P = 4.6;
-		//forward_I = 0.4;
-		//forward_D = 0.15;
-		//backward_P = 15.8;
-		//backward_I = 0.36;
-		//backward_D = 0.11;
+		/*forward_P = 4.6;
+		forward_I = 0.4;
+		forward_D = 0.15;
+		backward_P = 15.8;
+		backward_I = 0.36;
+		backward_D = 0.11;*/
 		if (para_flag == 1)
 		{
 
