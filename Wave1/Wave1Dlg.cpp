@@ -204,13 +204,13 @@ BOOL CWave1Dlg::OnInitDialog()
 	m_comSig.AddString(_T("分段阶跃"));
 	m_comSig.AddString(_T("正弦"));
 	m_comSig.AddString(_T("测死区"));
-	m_comSig.SetCurSel(0);	// 默认选择第一项   
-	SetDlgItemText(IDC_SIG, _T("阶跃"));	// 编辑框中默认显示第一项的文字“阶跃”
+	m_comSig.SetCurSel(1);	// 默认选择第一项   
+	SetDlgItemText(IDC_SIG, _T("请选择"));	// 编辑框中默认显示第一项的文字“阶跃”
 	//m_xAmp = 1;
 
 	m_comDir.AddString(_T("正向"));
 	m_comDir.AddString(_T("反向"));
-	m_comSig.SetCurSel(0);	// 默认选择第一项   
+	m_comDir.SetCurSel(0);	// 默认选择第一项   
 	SetDlgItemText(IDC_SET_DIR, _T("正向"));	// 编辑框中默认显示第一项的文字“正向”
 
 	SetWindowText(_T("Tiny Cylinder Controller"));
@@ -482,7 +482,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	double overshoot = 0;
 	int count_period = 2;
 
-	if (op == -1)	//保证是“开始”后再计算; if debug 改成-1
+	if (op == 0)	//保证是“开始”后再计算; if debug 改成-1
 	{
 
 		tt = tt + 0.01;
@@ -519,25 +519,29 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 
 			if (direction == 1 && ref != start_pos)  //判断最大超调
 			{
-				if (renVal > maximum_step_value) maximum_step_value = renVal;
+				if (renVal > maximum_step_value)
+				{
+					maximum_step_value = renVal;
+					tempStr.Format(_T("%.5f"), tt);
+					SetDlgItemText(IDC_PEAK_TIME, tempStr);
+				}
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
 				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
-
-				tempStr.Format(_T("%.5f"), tt);
-				SetDlgItemText(IDC_PEAK_TIME, tempStr);
 			}
 			else if (direction == -1 && ref != start_pos)
 			{
-				if (renVal < maximum_step_value) maximum_step_value = renVal;
+				if (renVal < maximum_step_value)
+				{
+					maximum_step_value = renVal;
+					tempStr.Format(_T("%.5f"), tt);
+					SetDlgItemText(IDC_PEAK_TIME, tempStr);
+				}
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
 				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr); 
-
-				tempStr.Format(_T("%.5f"), tt);
-				SetDlgItemText(IDC_PEAK_TIME, tempStr);
 			}
 
 			if (renVal >= ref && !is_rised)  //计算上升时间，注意>=
@@ -601,7 +605,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			//UpdateData(TRUE);
 
 		}
-
+		//分段阶跃
 		else if (m_comSig.GetCurSel() == 1 && nIDEvent == 1)
 		{
 			//定义变量
@@ -629,30 +633,40 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			tempStr.Format(_T("%.5f"), ref);
 			SetDlgItemText(IDC_IN_SIG, tempStr); //参考值
 
-			if (direction == 1 && ref != start_pos)  //判断最大超调
+			if (tt < 0.5 && direction == 1 && ref != start_pos)  //判断最大超调
 			{
-				if (renVal > maximum_step_value) maximum_step_value = renVal;
+				if (renVal > maximum_step_value)
+				{
+					maximum_step_value = renVal;
+					tempStr.Format(_T("%.5f"), tt);
+					SetDlgItemText(IDC_PEAK_TIME, tempStr);
+				}
+
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
 				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr);
 
-				tempStr.Format(_T("%.5f"), tt);
-				SetDlgItemText(IDC_PEAK_TIME, tempStr);
+
 			}
-			else if (direction == -1 && ref != start_pos)
+			else if (tt < 0.5 && direction == -1 && ref != start_pos)
 			{
-				if (renVal < maximum_step_value) maximum_step_value = renVal;
+				if (renVal < maximum_step_value)
+				{
+					maximum_step_value = renVal;
+					tempStr.Format(_T("%.5f"), tt);
+					SetDlgItemText(IDC_PEAK_TIME, tempStr);
+				}
 				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
 				overshoot = fabs(maximum_step_value - ref) / (ref);
 				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
 				SetDlgItemText(IDC_OVERSHOOT, tempStr);
 
-				tempStr.Format(_T("%.5f"), tt);
-				SetDlgItemText(IDC_PEAK_TIME, tempStr);
+
+
 			}
 
-			if (renVal >= ref && !is_rised)  //计算上升时间，注意>=
+			if (renVal >= 0.95 * ref && !is_rised)  //计算上升时间，注意>=
 			{
 				is_rised = !is_rised;
 				tempStr.Format(_T("%.5f"), tt);
@@ -685,15 +699,30 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			//UpdateData(FALSE);
 
 			//根据实时位置调整PID, 控制量计算
-			if (fabs(renVal - start_pos) / fabs(ref - start_pos) <= 0.75)
+			if (direction == 1)
 			{
-				integral = 0; //前面75%不积分
-				Actuating_signal = output_factor * (front_P * Error1 + 0 * integral + 0 * (Error1 - Error2));
+				if (fabs(renVal - start_pos) / fabs(ref - start_pos) <= 0.75 && direction == 1)  //正向前半部分
+				{
+					integral = 0; //前面75%不积分
+					Actuating_signal = output_factor * (front_P_forward * Error1 + 0 * integral + 0 * (Error1 - Error2));
+				}
+				else if (fabs(renVal - start_pos) / fabs(ref - start_pos) > 0.75 && direction == 1)  //正向后半部分
+				{
+					Actuating_signal = output_factor * (rear_P_forward * Error1 + rear_I_forward * integral + rear_D_forward * (Error1 - Error2));
+				}
 			}
-			else if (fabs(renVal - start_pos) / fabs(ref - start_pos) > 0.75)
+			else if (direction == -1)
 			{
-				Actuating_signal = output_factor * (rear_P * Error1 + rear_I * integral + rear_I * (Error1 - Error2));
-			}
+				if (fabs(renVal - start_pos) / fabs(ref - start_pos) <= 0.75 && direction == -1)  //反向前半部分
+				{
+					integral = 0; //前面75%不积分
+					Actuating_signal = output_factor * (front_P_backward * Error1 + 0 * integral + 0 * (Error1 - Error2));
+				}
+				else if (fabs(renVal - start_pos) / fabs(ref - start_pos) > 0.75 && direction == -1)  //反向后半部分
+				{
+					Actuating_signal = output_factor * (rear_P_backward * Error1 + rear_I_backward * integral + rear_D_backward * (Error1 - Error2));
+				}
+			}	
 			else  //不会进入
 			{
 				exit(0);
@@ -1006,9 +1035,15 @@ void CWave1Dlg::OnCbnSelchangeSig()
 
 	if(m_comSig.GetCurSel() == 0)  //阶跃
 	{
-		forward_P = 5;
-		forward_I = 0.3;
-		forward_D = 0;
+		//forward_P = 5;
+		//forward_I = 0.3;
+		//forward_D = 0;
+		//backward_P = 20;
+		//backward_I = 0.3;
+		//backward_D = 0;
+		forward_P = 4.5;
+		forward_I = 0.003;
+		forward_D = 0.001;
 		backward_P = 20;
 		backward_I = 0.3;
 		backward_D = 0;
@@ -1032,14 +1067,38 @@ void CWave1Dlg::OnCbnSelchangeSig()
 	}
 	else if (m_comSig.GetCurSel() == 1)  //分段阶跃
 	{
-		front_P = 15;
-		rear_P = 5;
-		rear_I = 3;
-		rear_D = 0;
+		/*空载*/
+		front_P_forward = 100;
+		rear_P_forward = 3.3;
+		rear_I_forward = 0.003;
+		rear_D_forward = 0.003;
+		front_P_backward = 100;
+		rear_P_backward = 30;
+		rear_I_backward = 0.003;
+		rear_D_backward = 0.03;
 
-		m_valP = rear_P;
-		m_valI = rear_I;
-		m_valD = rear_D;
+
+		/*3负载*/
+		/*front_P_forward = 30;
+		rear_P_forward = 3.5;
+		rear_I_forward = 0.015;
+		rear_D_forward = 0.01;
+		front_P_backward = 50;
+		rear_P_backward = 3.5;
+		rear_I_backward = 0.015;
+		rear_D_backward = 0.01;*/
+		if (para_flag == 1)
+		{
+			m_valP = rear_P_forward;
+			m_valI = rear_I_forward;
+			m_valD = rear_D_forward;
+		}
+		else if (para_flag)
+		{
+			m_valP = rear_P_backward;
+			m_valI = rear_I_backward;
+			m_valD = rear_D_backward;
+		}
 
 		m_DeadZone.SetWindowTextW(_T("2150"));
 		UpdateData(false);
@@ -1050,7 +1109,7 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		//m_valI = 0.4;
 		//m_valD = 0.10;
 
-		/*###########################################无负载*/
+		/*无负载*/
 		//t_sin = 0;
 		forward_P = 10;
 		forward_I = 0.4;
@@ -1059,14 +1118,14 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		backward_I = 0.46;
 		backward_D = 0.13;
 
-		/**###########################################有负载*/ 
+		/**3负载*/ 
 
-		//forward_P = 10;
+		//forward_P = 4.6;
 		//forward_I = 0.4;
-		//forward_D = 0.10;
-		//backward_P = 20.5;
-		//backward_I = 0.46;
-		//backward_D = 0.13;
+		//forward_D = 0.15;
+		//backward_P = 15.8;
+		//backward_I = 0.36;
+		//backward_D = 0.11;
 		if (para_flag == 1)
 		{
 
@@ -1105,21 +1164,43 @@ void CWave1Dlg::OnCbnSelchangeSetDir()
 	m_comDir.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
 	//UpdateData(false);	//更新显示及变量内容
-	if (m_comSig.GetCurSel() != 1 && m_comDir.GetCurSel() == 0)  //正向
+	if (m_comSig.GetCurSel() != 1)
 	{
-		para_flag = 1;
-		m_valP = forward_P;
-		m_valI = forward_I;
-		m_valD = forward_D;
-		UpdateData(false);
+		if (m_comDir.GetCurSel() == 0)  //正向
+		{
+			para_flag = 1;
+			m_valP = forward_P;
+			m_valI = forward_I;
+			m_valD = forward_D;
+			UpdateData(false);
+		}
+		else if (m_comDir.GetCurSel() == 1)  //反向
+		{
+			para_flag = -1;
+			m_valP = backward_P;
+			m_valI = backward_I;
+			m_valD = backward_D;
+			UpdateData(false);
+		}
 	}
-	else if (m_comSig.GetCurSel() != 1 && m_comDir.GetCurSel() == 1)  //反向
+	else
 	{
-		para_flag = -1;
-		m_valP = backward_P;
-		m_valI = backward_I;
-		m_valD = backward_D;
-		UpdateData(false);
+		if (m_comDir.GetCurSel() == 0)  //正向
+		{
+			para_flag = 1;
+			m_valP = rear_P_forward;
+			m_valI = rear_I_forward;
+			m_valD = rear_D_forward;
+			UpdateData(false);
+		}
+		else if (m_comDir.GetCurSel() == 1)  //反向
+		{
+			para_flag = -1;
+			m_valP = rear_P_backward;
+			m_valI = rear_I_backward;
+			m_valD = rear_D_backward;
+			UpdateData(false);
+		}
 	}
 }
 
@@ -1291,9 +1372,19 @@ void CWave1Dlg::OnBnClickedUpdate()
 	//根据选择的方向判断更新PID参数
 	if (m_comSig.GetCurSel() == 1)  //分段阶跃
 	{
-		rear_P = m_valP;
-		rear_I = m_valI;
-		rear_D = m_valD;
+		if (para_flag == 1)
+		{
+			rear_P_forward = m_valP;
+			rear_I_forward = m_valI;
+			rear_D_forward = m_valD;
+		}
+		else if (para_flag == -1)
+		{
+			rear_P_backward = m_valP;
+			rear_I_backward = m_valI;
+			rear_D_backward = m_valD;
+		}
+
 	}
 	else if (para_flag == 1)
 	{

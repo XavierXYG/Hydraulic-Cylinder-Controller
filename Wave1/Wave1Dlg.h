@@ -94,10 +94,14 @@ public:
 	double forward_D;
 	double backward_D;
 
-	double front_P;
-	double rear_P;
-	double rear_I;
-	double rear_D;
+	double front_P_forward;
+	double rear_P_forward;
+	double rear_I_forward;
+	double rear_D_forward;
+	double front_P_backward;
+	double rear_P_backward;
+	double rear_I_backward;
+	double rear_D_backward;
 
 	double integral = 0;	//算真正的积分项
 	double Error1 = 0, Error2 = 0; 	//	计算差值和误差, Error1 = 这次的；Error2 = 上次的
