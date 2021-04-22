@@ -40,8 +40,12 @@ public:
 	CStatic m_ErrorDraw;
 	double m_nzValues[POINT_COUNT];
 	int test = 1;
-	void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x);
-	void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture);
+	void CWave1Dlg::DrawWave(CWnd* pWnd, CRect& rectPicture);
+	void CWave1Dlg::DrawError(CWnd* pWnd, CRect& rectPicture);
+	CRect rectWave;	//波形图控件位置参量
+	CRect rectError;	//误差图控件位置参量
+	CWnd* pDCWave;
+	CWnd* pDCError;
 
 	double m_nzValues2[POINT_COUNT];
 	double m_nzValues3[POINT_COUNT];
@@ -90,6 +94,12 @@ public:
 	double forward_D;
 	double backward_D;
 
+	double front_P;
+	double rear_P;
+	double rear_I;
+	double rear_D;
+
+	double integral = 0;	//算真正的积分项
 	double Error1 = 0, Error2 = 0; 	//	计算差值和误差, Error1 = 这次的；Error2 = 上次的
 	double Actuating_signal = 0;
 	double m_xAmp = 1;	//横轴放大倍数
@@ -100,6 +110,7 @@ public:
 	bool is_rised = 0;  //判断是否达到过100%的ref，达到过就不再更新tr
 	int settle_count = 0;  //计数，上下不超过3%，否则清零，到100个（1s）计算ts
 	bool is_settled = 0;  //判断是否稳定
+	//bool is_betta = 0;
 
 	CComboBox m_comChannel;	// 通道方式 combo
 	CComboBox m_comChannelNum;	//通道数 combo

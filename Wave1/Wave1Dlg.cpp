@@ -201,6 +201,7 @@ BOOL CWave1Dlg::OnInitDialog()
 
 	// 为“信号选择”combo控件的列表框添加列表项
 	m_comSig.AddString(_T("阶跃"));
+	m_comSig.AddString(_T("分段阶跃"));
 	m_comSig.AddString(_T("正弦"));
 	m_comSig.AddString(_T("测死区"));
 	m_comSig.SetCurSel(0);	// 默认选择第一项   
@@ -224,6 +225,25 @@ BOOL CWave1Dlg::OnInitDialog()
 	backward_I = 0.3;
 	backward_D = 0;
 
+	// 波形图框地址指针初始化
+	//获取Picture Control控件的大小，ID为IDC_ShowPic  
+	GetDlgItem(IDC_WAVE_DRAW)->GetWindowRect(&rectWave);
+	//将客户区选中到控件表示的矩形区域内  
+	ScreenToClient(&rectWave);
+	//窗口移动到控件表示的区域
+	GetDlgItem(IDC_WAVE_DRAW)->MoveWindow(rectWave.left, rectWave.top, rectWave.Width(), rectWave.Height(), TRUE);
+	pDCWave = GetDlgItem(IDC_WAVE_DRAW);
+	pDCWave->GetClientRect(&rectWave);      //获取句柄指向控件区域的大小 
+
+	//误差图框地址指针初始化
+	//获取Picture Control控件的大小，ID为IDC  
+	GetDlgItem(IDC_ERROR_PLOT)->GetWindowRect(&rectError);
+	//将客户区选中到控件表示的矩形区域内  
+	ScreenToClient(&rectError);
+	//窗口移动到控件表示的区域
+	GetDlgItem(IDC_ERROR_PLOT)->MoveWindow(rectError.left, rectError.top, rectError.Width(), rectError.Height(), TRUE);
+	pDCError = GetDlgItem(IDC_ERROR_PLOT);
+	pDCError->GetClientRect(&rectError);      //获取句柄指向控件区域的大小 
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -276,7 +296,8 @@ HCURSOR CWave1Dlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
-void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x)
+
+void CWave1Dlg::DrawWave(CWnd* pWnd, CRect& rectPicture)
 {
 	float fDeltaX;     // x轴相邻两个绘图点的坐标距离   
 	float fDeltaY;     // y轴每个逻辑单位对应的坐标值   
@@ -289,69 +310,97 @@ void CWave1Dlg::DrawWave(CDC* pDC, CRect& rectPicture, int x)
 	CBrush newBrush;   // 用于创建新画刷   
 	CBrush* pOldBrush; // 用于存放旧画刷   
 
-	// 计算fDeltaX和fDeltaY   
+	//GetClientRect(rect);
+
+	CClientDC DC(pWnd);
+	// 计算fDeltaX和fDeltaY  
+	//rect.MoveToX(rectPicture.right);
+	//rect.MoveToY(-(float)rect.Height()+rect.bottom);
+	//rect.MoveToY(rect.bottom);
 	fDeltaX = (float)rectPicture.Width() / (POINT_COUNT - 1);
-	fDeltaY = (float)rectPicture.Height() / 250;
+	fDeltaY = (float)rectPicture.Height() / 275;
 	// 创建黑色新画刷   
 	newBrush.CreateSolidBrush(RGB(0, 0, 0));
 	// 选择新画刷，并将旧画刷的指针保存到pOldBrush   
-	pOldBrush = pDC->SelectObject(&newBrush);
+	pOldBrush = DC.SelectObject(&newBrush);
 	// 以黑色画刷为绘图控件填充黑色，形成黑色背景   
-	pDC->Rectangle(rectPicture);
+	DC.Rectangle(rectWave);
 	// 恢复旧画刷   
-	pDC->SelectObject(pOldBrush);
+	DC.SelectObject(pOldBrush);
 	// 删除新画刷   
 	newBrush.DeleteObject();
 
 	// 创建实心画笔，粗度为2，颜色为*色   
 	newPen1.CreatePen(PS_SOLID, 2, RGB(0, 255, 0));
 	// 选择新画笔，并将旧画笔的指针保存到pOldPen   
-	pOldPen1 = pDC->SelectObject(&newPen1);
+	pOldPen1 = DC.SelectObject(&newPen1);
 	// 将当前点移动到绘图控件窗口的左下角，以此为波形的起始点   
-	pDC->MoveTo(rectPicture.left, rectPicture.bottom);
+	DC.MoveTo(rectPicture.left, rectPicture.bottom);
 	// 计算m_nzValues数组中每个点对应的坐标位置，并依次连接，最终形成曲线 
 
-	float upperLimit = rectPicture.bottom - (int)(250 * fDeltaY);
+	float upperLimit = rectPicture.bottom - (int)(275 * fDeltaY);
 	float lowerLimit = rectPicture.bottom;
 
 	for (int i = 0; i < POINT_COUNT; i++)
 	{
-
+		//计算坐标
 		nX = rectPicture.left + (float)rectPicture.Width() - m_xAmp * ((float)rectPicture.Width() - (int)(i * fDeltaX));
 		//nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp;
 		nY = rectPicture.bottom - (int)(m_nzValues[i] * fDeltaY);
-		if (nX < fDeltaX) pDC->MoveTo(nX, nY);
-		else if (m_nzValues[i] > 250) pDC->MoveTo(nX, upperLimit);
-		else if (m_nzValues[i] < 0) pDC->MoveTo(nX, lowerLimit);
-		else pDC->LineTo(nX, nY);
+		//判断会不会画出画布
+		if (m_nzValues[i] > 275)//上界
+		{
+			//左界
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, upperLimit);
+			else DC.MoveTo(nX, upperLimit);
+		}
+		else if (m_nzValues[i] < 0)//下界
+		{
+			//左界
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, lowerLimit);
+			else DC.MoveTo(nX, lowerLimit);
+		}
+		else if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, nY);//
+		else if (i == 0) DC.MoveTo(nX, nY);//第一个点先不画
+		else DC.LineTo(nX, nY);//连线
 	}
 
 	// 恢复旧画笔   
-	pDC->SelectObject(pOldPen1);
+	DC.SelectObject(pOldPen1);
 	// 删除新画笔   
 	newPen1.DeleteObject();
 
 	newPen2.CreatePen(PS_SOLID, 2, RGB(255, 225, 0));
-	//- (int)(fDeltaX * POINT_COUNT) * (m_xAmp - 1)
-	pOldPen2 = pDC->SelectObject(&newPen2);
+	pOldPen2 = DC.SelectObject(&newPen2);
 	for (int i = 0; i < POINT_COUNT; i++)
 	{
 		nX = rectPicture.left + (float)rectPicture.Width() - m_xAmp * ((float)rectPicture.Width() - (int)(i * fDeltaX));
 		//nX = rectPicture.left + (int)(i * fDeltaX) * m_xAmp ;
 		nY = rectPicture.bottom - (int)(m_nzValues2[i] * fDeltaY);
 
-		if (i == 0 || nX < fDeltaX) pDC->MoveTo(nX, nY);
-		else if (m_nzValues2[i] > 250) pDC->MoveTo(nX, upperLimit);
-		else if (m_nzValues2[i] < 0) pDC->MoveTo(nX, lowerLimit);
-		else pDC->LineTo(nX, nY);
+		if (m_nzValues2[i] > 275)
+		{
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, upperLimit);
+			else DC.MoveTo(nX, upperLimit);
+		}
+		else if (m_nzValues2[i] < 0)
+		{
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, lowerLimit);
+			else DC.MoveTo(nX, lowerLimit);
+		}
+		else if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, nY);
+		else if (i == 0) DC.MoveTo(nX, nY);
+		else DC.LineTo(nX, nY);
+
 	}
 
-	pDC->SelectObject(pOldPen2);
+	DC.SelectObject(pOldPen2);
 	// 删除新画笔   
 	newPen2.DeleteObject();
+	//ReleaseDC(pDC);
 }
 
-void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
+void CWave1Dlg::DrawError(CWnd* pWnd, CRect& rectPicture)
 {
 	float fDeltaX;     // x轴相邻两个绘图点的坐标距离   
 	float fDeltaY;     // y轴每个逻辑单位对应的坐标值   
@@ -362,6 +411,10 @@ void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
 	CBrush newBrush;   // 用于创建新画刷   
 	CBrush* pOldBrush; // 用于存放旧画刷   
 
+	//GetClientRect(rect);
+
+	CClientDC DC(pWnd);
+
 	// 计算fDeltaX和fDeltaY   
 	fDeltaX = (float)rectPicture.Width() / (POINT_COUNT - 1);
 	fDeltaY = (float)rectPicture.Height() / 10;
@@ -369,21 +422,21 @@ void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
 	// 创建黑色新画刷   
 	newBrush.CreateSolidBrush(RGB(0, 0, 0));
 	// 选择新画刷，并将旧画刷的指针保存到pOldBrush   
-	pOldBrush = pDC->SelectObject(&newBrush);
+	pOldBrush = DC.SelectObject(&newBrush);
 	// 以黑色画刷为绘图控件填充黑色，形成黑色背景   
-	pDC->Rectangle(rectPicture);
+	DC.Rectangle(rectPicture);
 	// 恢复旧画刷   
-	pDC->SelectObject(pOldBrush);
+	DC.SelectObject(pOldBrush);
 	// 删除新画刷   
 	newBrush.DeleteObject();
 
 	// 创建实心画笔，粗度为2，颜色为red guys   
 	newPen.CreatePen(PS_SOLID, 2, RGB(255, 0, 0));
 	// 选择新画笔，并将旧画笔的指针保存到pOldPen   
-	pOldPen = pDC->SelectObject(&newPen);
+	pOldPen = DC.SelectObject(&newPen);
 
 	// 将当前点移动到绘图控件窗口的左下角，以此为波形的起始点   
-	pDC->MoveTo(rectPicture.left, rectPicture.bottom);
+	DC.MoveTo(rectPicture.left, rectPicture.bottom);
 	// 计算m_nzValues数组中每个点对应的坐标位置，并依次连接，最终形成曲线 
 
 	for (int i = 0; i < POINT_COUNT; i++)
@@ -393,15 +446,24 @@ void CWave1Dlg::DrawError(CDC* pDC, CRect& rectPicture)
 		nY = rectPicture.bottom - (int)(m_nzValues3[i] * fDeltaY);
 		float upperLimit = rectPicture.bottom - (int)(10 * fDeltaY);
 		float lowerLimit = rectPicture.bottom;
-		if (i == 0) pDC->MoveTo(nX, nY);
-		else if (m_nzValues3[i] > 10 || nX < fDeltaX)  pDC->MoveTo(nX, upperLimit);
-		else if (m_nzValues3[i] < 0 || nX < fDeltaX)  pDC->MoveTo(nX, lowerLimit);
-		else pDC->LineTo(nX, nY);
+		if (m_nzValues3[i] > 10)
+		{
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, upperLimit);
+			else DC.MoveTo(nX, upperLimit);
+		}
+		else if (m_nzValues3[i] < 0)
+		{
+			if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, lowerLimit);
+			else DC.MoveTo(nX, lowerLimit);
+		}
+		else if (nX < rectPicture.left + fDeltaX / 20) DC.MoveTo(rectPicture.left + fDeltaX / 20, nY);
+		else if (i == 0) DC.MoveTo(nX, nY);
+		else DC.LineTo(nX, nY);
 
 	}
 
 	// 恢复旧画笔   
-	pDC->SelectObject(pOldPen);
+	DC.SelectObject(pOldPen);
 	// 删除新画笔   
 	newPen.DeleteObject();
 }
@@ -432,7 +494,7 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			//定义变量
 			ref = m_valStepAmp;
-			double integral = 0;	//算真正的积分项
+			//double integral = 0;	//算真正的积分项
 			CString tempStr, strd;	//用于输出一些值
 
 			//检测面板输入
@@ -539,11 +601,125 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 			//UpdateData(TRUE);
 
 		}
-		//正弦
+
 		else if (m_comSig.GetCurSel() == 1 && nIDEvent == 1)
 		{
 			//定义变量
-			double integral = 0;
+			ref = m_valStepAmp;
+			//double integral = 0;	//算真正的积分项
+			CString tempStr, strd;	//用于输出一些值
+
+			//检测面板输入
+			//tempStr.Format(_T("%d,%d,%d,%d"), m_cardN0, m_ChMode, m_ADrange, m_ADAmp);
+			//MessageBox(tempStr);	//检测是否进入这个函数
+			m_DeadZone.GetWindowText(strd);
+			dead_zone = _tstof(strd);
+
+			//指定通道单次采集
+			renVolt = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0);
+			renVal = double(renVolt / input_denominator);
+
+			//判断方向
+			if (ref >= start_pos) direction = 1;
+			else if (ref < start_pos) direction = -1;
+
+			//更新面板输出
+			tempStr.Format(_T("%.5f"), renVolt);
+			SetDlgItemText(IDC_CHANNEL_READ, tempStr);	//输出通道读数
+			tempStr.Format(_T("%.5f"), ref);
+			SetDlgItemText(IDC_IN_SIG, tempStr); //参考值
+
+			if (direction == 1 && ref != start_pos)  //判断最大超调
+			{
+				if (renVal > maximum_step_value) maximum_step_value = renVal;
+				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				overshoot = fabs(maximum_step_value - ref) / (ref);
+				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
+				SetDlgItemText(IDC_OVERSHOOT, tempStr);
+
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_PEAK_TIME, tempStr);
+			}
+			else if (direction == -1 && ref != start_pos)
+			{
+				if (renVal < maximum_step_value) maximum_step_value = renVal;
+				//overshoot = (maximum_step_value - ref) / (ref - start_pos);
+				overshoot = fabs(maximum_step_value - ref) / (ref);
+				tempStr.Format(_T("%.5f"), 100.0 * overshoot);
+				SetDlgItemText(IDC_OVERSHOOT, tempStr);
+
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_PEAK_TIME, tempStr);
+			}
+
+			if (renVal >= ref && !is_rised)  //计算上升时间，注意>=
+			{
+				is_rised = !is_rised;
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_RISETIME, tempStr);
+			}
+
+			//if (fabs(renVal - ref) <= 0.03 * fabs(ref - start_pos) && is_rised)  settle_count++;  //计算稳定时间
+			//else settle_count = 0;
+			//if (settle_count == 100 * count_period)  //1s = 100 * 10ms
+			//{
+			//	tempStr.Format(_T("%.5f"), tt - count_period);
+			//	SetDlgItemText(IDC_SETTLING_TIME, tempStr);
+			//}
+
+			if (!is_settled && fabs(renVal - ref) <= 0.03 * fabs(ref - start_pos))  //计算稳定时间
+			{
+				tempStr.Format(_T("%.5f"), tt);
+				SetDlgItemText(IDC_SETTLING_TIME, tempStr);
+				is_settled = 1;
+			}
+			else if (is_settled && fabs(renVal - ref) > 0.03 * fabs(ref - start_pos)) is_settled = 0;
+
+
+			//更新控制参数并输出误差
+			integral = Error1 + integral;
+			Error2 = Error1;
+			Error1 = double(ref - renVal);
+			tempStr.Format(_T("%.5f"), Error1);
+			SetDlgItemText(IDC_DIFF, tempStr);	//把误差输出
+			//UpdateData(FALSE);
+
+			//根据实时位置调整PID, 控制量计算
+			if (fabs(renVal - start_pos) / fabs(ref - start_pos) <= 0.75)
+			{
+				integral = 0; //前面75%不积分
+				Actuating_signal = output_factor * (front_P * Error1 + 0 * integral + 0 * (Error1 - Error2));
+			}
+			else if (fabs(renVal - start_pos) / fabs(ref - start_pos) > 0.75)
+			{
+				Actuating_signal = output_factor * (rear_P * Error1 + rear_I * integral + rear_I * (Error1 - Error2));
+			}
+			else  //不会进入
+			{
+				exit(0);
+			}
+
+			//控制量计算
+			//TODO: 优化算法，分段控制
+			//Actuating_signal = output_factor * (m_valP * Error1 + m_valI * integral + m_valD * (Error1 - Error2));
+
+			//控制量输出
+			if (Actuating_signal > 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal + dead_zone);
+			else if (Actuating_signal < 0)  ZT7660_AOonce(1, 1, 6, Actuating_signal - dead_zone);
+
+			//板卡状态更新
+			tempStr.Format(_T("%d"), ZT7660_GetLastErr());
+			m_ValErrorCode.SetWindowText(tempStr);
+
+			//UpdateData(TRUE);
+
+		}
+
+		//正弦
+		else if (m_comSig.GetCurSel() == 2 && nIDEvent == 1)
+		{
+			//定义变量
+			//double integral = 0;
 			double fre, peak = 0;	//计算积分项、频率、幅值和返回函数
 			CString tempStr, strf, strd;	//用于输出一些值
 
@@ -608,11 +784,11 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 
 			//UpdateData(TRUE);
 		}
-		else if (m_comSig.GetCurSel() == 2 && nIDEvent == 1) //测死区
+		else if (m_comSig.GetCurSel() == 3 && nIDEvent == 1) //测死区
 		{
 			//定义变量
 			ref = m_valStepmV;
-			double integral = 0;	//算真正的积分项
+			//double integral = 0;	//算真正的积分项
 			CString tempStr, strd;	//用于输出一些值
 
 			//检测面板输入
@@ -668,15 +844,15 @@ void CWave1Dlg::OnTimer(UINT_PTR nIDEvent)
 	m_nzValues[POINT_COUNT - 1] = renVal;
 	m_nzValues2[POINT_COUNT - 1] = ref;
 	m_nzValues3[POINT_COUNT - 1] = Error1 + 5;
+
 	// 获取绘图控件的客户区坐标   
 	// （客户区坐标以窗口的左上角为原点，这区别于以屏幕左上角为原点的屏幕坐标）   
 	m_picDraw.GetClientRect(&rectPicture_wave);
 	m_ErrorDraw.GetClientRect(&rectPicture_error);
 
 	// 绘制波形图   
-	//DrawWave(m_picDraw.GetDC(), rectPicture_wave, 2);
-	DrawWave(m_picDraw.GetDC(), rectPicture_wave, 1);
-	DrawError(m_ErrorDraw.GetDC(), rectPicture_error);
+	DrawWave(pDCWave, rectPicture_wave);
+	DrawError(pDCError, rectPicture_error);
 	CDialogEx::OnTimer(nIDEvent);
 }
 
@@ -854,14 +1030,28 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		m_DeadZone.SetWindowTextW(_T("2150"));
 		UpdateData(false);
 	}
-	else if (m_comSig.GetCurSel() == 1)  //正弦
+	else if (m_comSig.GetCurSel() == 1)  //分段阶跃
+	{
+		front_P = 15;
+		rear_P = 5;
+		rear_I = 3;
+		rear_D = 0;
+
+		m_valP = rear_P;
+		m_valI = rear_I;
+		m_valD = rear_D;
+
+		m_DeadZone.SetWindowTextW(_T("2150"));
+		UpdateData(false);
+	}
+	else if (m_comSig.GetCurSel() == 2)  //正弦
 	{
 		//m_valP = 8;
 		//m_valI = 0.4;
 		//m_valD = 0.10;
 
 		/*###########################################无负载*/
-
+		//t_sin = 0;
 		forward_P = 10;
 		forward_I = 0.4;
 		forward_D = 0.15;
@@ -896,7 +1086,7 @@ void CWave1Dlg::OnCbnSelchangeSig()
 		m_sinFre.SetWindowTextW(_T("0.25"));
 		UpdateData(false);
 	}
-	else if (m_comSig.GetCurSel() == 2)  //死区
+	else if (m_comSig.GetCurSel() == 3)  //死区
 	{
 		m_valP = 0;
 		m_valI = 0;
@@ -915,8 +1105,7 @@ void CWave1Dlg::OnCbnSelchangeSetDir()
 	m_comDir.GetLBText(nSel, strWeb);	//获得数据缓存内容
 	//xianshi = strWeb;	//将索引内容传递给另一变量
 	//UpdateData(false);	//更新显示及变量内容
-
-	if (m_comDir.GetCurSel() == 0)  //正向
+	if (m_comSig.GetCurSel() != 1 && m_comDir.GetCurSel() == 0)  //正向
 	{
 		para_flag = 1;
 		m_valP = forward_P;
@@ -924,7 +1113,7 @@ void CWave1Dlg::OnCbnSelchangeSetDir()
 		m_valD = forward_D;
 		UpdateData(false);
 	}
-	else if (m_comDir.GetCurSel() == 1)  //反向
+	else if (m_comSig.GetCurSel() != 1 && m_comDir.GetCurSel() == 1)  //反向
 	{
 		para_flag = -1;
 		m_valP = backward_P;
@@ -1040,7 +1229,7 @@ void CWave1Dlg::OnEnChangeI()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
-	UpdateData(TRUE);
+	//UpdateData(TRUE);
 	//UpdateData(FALSE);
 }
 
@@ -1053,10 +1242,10 @@ void CWave1Dlg::OnEnChangeD()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
-	CString str;
-	GetDlgItemText(IDC_D, str);
+	//CString str;
+	//GetDlgItemText(IDC_D, str);
 
-	m_valD = _ttof(str);
+	//m_valD = _ttof(str);
 	//m_valD= _ttof(GetDlgItemText(IDC_D, str));
 	//UpdateData(TRUE);
 	//UpdateData(FALSE);//本来就没有
@@ -1087,6 +1276,7 @@ void CWave1Dlg::OnBnClickedUpdate()
 	GetLocalTime(&t1);//获取当前系统时间
 	tt = 0;
 	is_rised = 0;
+	integral = 0;
 	//记录初始位置
 	CString tempStr;
 	double renVal = ZT7660_AIonce(m_cardN0, m_ChMode, 21, m_ADrange, m_ADAmp, 0, 0, 0, 0, 0, 0) / input_denominator;
@@ -1099,7 +1289,13 @@ void CWave1Dlg::OnBnClickedUpdate()
 	UpdateData(TRUE);
 
 	//根据选择的方向判断更新PID参数
-	if (para_flag == 1)
+	if (m_comSig.GetCurSel() == 1)  //分段阶跃
+	{
+		rear_P = m_valP;
+		rear_I = m_valI;
+		rear_D = m_valD;
+	}
+	else if (para_flag == 1)
 	{
 		forward_P = m_valP;
 		forward_I = m_valI;
