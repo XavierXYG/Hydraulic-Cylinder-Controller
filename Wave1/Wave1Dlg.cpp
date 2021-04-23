@@ -1,5 +1,5 @@
 ﻿// Wave1Dlg.cpp: 实现文件
-//
+
 #include "pch.h"
 #include "framework.h"
 #include "Wave1.h"
